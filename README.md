@@ -159,7 +159,7 @@ The response includes an additional `jwt` field containing an ES256-signed JWT, 
 
 ## Verify the Response
 
-Your agent gets the attestation. Your application should verify it. Install [insumer-verify](https://www.npmjs.com/package/insumer-verify):
+Your agent gets the attestation. Your application should verify it. Install [insumer-verify](https://www.npmjs.com/package/insumer-verify) (also on [PyPI](https://pypi.org/project/insumer-verify/) for Python: `pip install insumer-verify`, same checks, same 27 published test vectors):
 
 ```bash
 npm install insumer-verify

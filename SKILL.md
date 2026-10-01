@@ -165,7 +165,7 @@ Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Sonic, G
 - **ECDSA P-256 signatures** — every response cryptographically signed; since 2026-09-01 an ML-DSA-65 post-quantum companion (`pqSig`/`pqKid`, and `pqJwt` beside `jwt`) rides beside `sig`/`kid`
 - **JWKS key discovery** — five entries over two keys at [/.well-known/jwks.json](https://insumermodel.com/.well-known/jwks.json) (RFC 7517; the post-quantum key as RFC 9964 `AKP` entries), matched by `kid` or `pqKid`, never by position
 - **Optional Merkle proofs** — EIP-1186 storage proofs for trustless verification against block headers
-- **Independent verification** — [`insumer-verify`](https://www.npmjs.com/package/insumer-verify) (npm, zero deps) reports five verdicts: signature, condition hash, block freshness, expiry, and the post-quantum companion (1.8.1+)
+- **Independent verification** — [`insumer-verify`](https://www.npmjs.com/package/insumer-verify) (npm, zero deps; also on [PyPI](https://pypi.org/project/insumer-verify/) for Python, same checks and test vectors) reports five verdicts: signature, condition hash, block freshness, expiry, and the post-quantum companion (1.8.1+)
 
 ## Links
 
@@ -174,4 +174,5 @@ Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Sonic, G
 - OpenAPI Spec: https://insumermodel.com/openapi.yaml
 - GitHub: https://github.com/insumerapi/mcp-server-insumer
 - Verifier: https://www.npmjs.com/package/insumer-verify
+- Verifier (Python): https://pypi.org/project/insumer-verify/
 - Verifier source: https://github.com/insumerapi/insumer-verify
