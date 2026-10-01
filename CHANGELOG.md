@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.9 (2026-10-01)
+
+- Trust profile text follows the 2026-10-01 condition-set expansion, already live on `/v1/trust` and `/v1/trust/batch`: 145 base checks across 27 chains in 9 dimensions (adds tokenized_treasuries, stablecoin_deposits, wrapped_bitcoin and names; widens stablecoins to ten issuers on 23 EVM chains, governance to eight tokens, staking to five), up to 166 across 29 chains in 13 with the optional Solana (now a 14-check dimension), XRPL (RLUSD, USDC, OUSG), Bitcoin and Tron (USDT, USD1, WBTC) wallets. Stellar and Sui wallets add no dimension; their rows sit inside base dimensions and carry `evaluated: false` when the wallet is absent. `conditionSetVersion` is described as the dated set id (`2026-10`) that names the check list run; readers log it and never reject on it. Proof mode: computed-balance rows (Aave aTokens, BUIDL) are declined with a reason and the premium refunded. Tool descriptions, per-wallet parameter text, README, SKILL.md and the package description updated; no code path changed.
+
 ## 1.13.8 (2026-09-25)
 
 - The repository moved to the insumerapi GitHub organization: repository, security-reporting and source links point to github.com/insumerapi/mcp-server-insumer. No code changes; the registry name is unchanged.

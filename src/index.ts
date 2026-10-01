@@ -380,16 +380,16 @@ server.tool(
 
 server.tool(
   "insumer_wallet_trust",
-  "Generate a structured, ECDSA-signed wallet trust fact profile. Send an EVM wallet address and get 45 base checks across 26 chains in 5 dimensions: stablecoins (USDC + USDT across 22 EVM chains), governance (UNI, AAVE, ARB, OP), NFTs (BAYC, Pudgy Penguins, Wrapped CryptoPunks), staking (stETH, rETH, cbETH), and institutional stablecoins (EURCV, USDCV, USDC, and BENJI across Ethereum, Solana, XRPL, Stellar, and Sui — the cross-chain entries evaluate when the matching optional wallet is supplied). Add optional Solana, XRPL, Bitcoin, and Tron wallets to reach up to 50 checks across 28 chains in 9 dimensions (adds Solana USDC, XRPL RLUSD + USDC, native BTC holdings, and Tron USDT-TRC20). Returns per-dimension pass/fail counts and an overall summary — no score, no opinion, just cryptographically verifiable evidence organized by dimension. Designed for AI agent-to-agent trust decisions. Costs 3 credits (standard) or 6 credits (proof: 'merkle').",
+  "Generate a structured, ECDSA-signed wallet trust fact profile. Send an EVM wallet address and get 145 base checks across 27 chains in 9 dimensions: stablecoins (USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI and EURC across 23 EVM chains), governance (UNI, AAVE, ARB, OP, ENS, LDO, SKY, COMP), NFTs (BAYC, Pudgy Penguins, Wrapped CryptoPunks), staking (stETH, rETH, cbETH, wstETH, weETH), institutional stablecoins (EURCV, USDCV, USDC and BENJI across Ethereum, Solana, XRPL, Stellar and Sui), tokenized treasuries (BUIDL, USYC, OUSG, USTB, USDY), stablecoin deposits (Aave v3 aUSDC/aUSDT, sUSDS, sDAI, listed Morpho USDC vaults), wrapped bitcoin (cbBTC, WBTC, tBTC) and names (ENS .eth, Basenames). Rows on Solana, XRPL, Stellar and Sui inside those dimensions evaluate only when the matching optional wallet is supplied; otherwise they stay in the signed profile with evaluated: false. Add optional Solana, XRPL, Bitcoin and Tron wallets to reach up to 166 checks across 29 chains in 13 dimensions (adds a 14-check Solana dimension, RLUSD + USDC + OUSG on XRPL, native BTC holdings, and USDT + USD1 + WBTC on Tron). Every check is a presence check: held or not held, never a balance. The signed conditionSetVersion (currently 2026-10) names the check list that was run; log it, never reject on it. Returns per-dimension pass/fail counts and an overall summary: no score, no opinion, just cryptographically verifiable evidence organized by dimension. Designed for AI agent-to-agent trust decisions. Costs 3 credits (standard) or 6 credits (proof: 'merkle').",
   {
     wallet: z.string().describe("EVM wallet address (0x...) to profile"),
-    solanaWallet: z.string().optional().describe("Solana wallet address (base58). If provided, adds USDC on Solana and institutional EURCV/USDCV on Solana checks."),
-    xrplWallet: z.string().optional().describe("XRPL wallet address (r-address). If provided, adds RLUSD, USDC, and institutional EURCV on XRPL checks."),
-    bitcoinWallet: z.string().optional().describe("Bitcoin address. If provided, adds Bitcoin Holdings dimension (native BTC balance check)."),
-    tronWallet: z.string().optional().describe("Tron wallet address (T-prefixed). If provided, adds USDT-TRC20 on Tron check."),
-    stellarWallet: z.string().optional().describe("Stellar wallet address (G-prefixed). If provided, adds institutional USDC and BENJI on Stellar checks (classic trustlines)."),
-    suiWallet: z.string().optional().describe("Sui wallet address (0x + 64 hex). If provided, adds institutional USDC on Sui check."),
-    proof: z.enum(["merkle"]).optional().describe("Set to 'merkle' for EIP-1186 Merkle storage proofs on stablecoin/governance checks (6 credits)."),
+    solanaWallet: z.string().optional().describe("Solana wallet address (base58). If provided, adds the 14-check solana dimension (USDC, EURC, OUSD, PYUSD, USD1, USDG, USDS, BUIDL, USDY, WBTC, cbBTC, tBTC, JitoSOL, mSOL) and lets the institutional EURCV/USDCV on Solana rows evaluate."),
+    xrplWallet: z.string().optional().describe("XRPL wallet address (r-address). If provided, adds the xrpl dimension (RLUSD, USDC, OUSG) and lets the institutional EURCV on XRPL row evaluate."),
+    bitcoinWallet: z.string().optional().describe("Bitcoin address. If provided, adds the bitcoin dimension (one native BTC presence check)."),
+    tronWallet: z.string().optional().describe("Tron wallet address (T-prefixed). If provided, adds the tron dimension (USDT, USD1, WBTC on Tron)."),
+    stellarWallet: z.string().optional().describe("Stellar wallet address (G-prefixed). If provided, lets the institutional USDC and BENJI on Stellar rows evaluate (classic trustlines). Adds no dimension."),
+    suiWallet: z.string().optional().describe("Sui wallet address (0x + 64 hex). If provided, lets the institutional USDC on Sui and tokenized-treasury USDY on Sui rows evaluate. Adds no dimension."),
+    proof: z.enum(["merkle"]).optional().describe("Set to 'merkle' for EIP-1186 Merkle storage proofs on EVM token checks (6 credits). Rows whose balance is computed rather than stored (Aave aTokens, BUIDL) and NFT/non-EVM rows are declined with a reason; the premium is refunded whenever no proof is delivered."),
   },
   async (args) => {
     const result = await apiCall("POST", "/trust", args);
@@ -408,27 +408,27 @@ server.tool(
           solanaWallet: z
             .string()
             .optional()
-            .describe("Solana wallet address (base58). Adds USDC on Solana and institutional EURCV/USDCV on Solana checks."),
+            .describe("Solana wallet address (base58). Adds the 14-check solana dimension and lets the institutional EURCV/USDCV on Solana rows evaluate."),
           xrplWallet: z
             .string()
             .optional()
-            .describe("XRPL wallet address (r-address). Adds RLUSD, USDC, and institutional EURCV on XRPL checks."),
+            .describe("XRPL wallet address (r-address). Adds the xrpl dimension (RLUSD, USDC, OUSG) and lets the institutional EURCV on XRPL row evaluate."),
           bitcoinWallet: z
             .string()
             .optional()
-            .describe("Bitcoin address. Adds Bitcoin Holdings dimension."),
+            .describe("Bitcoin address. Adds the bitcoin dimension (native BTC)."),
           tronWallet: z
             .string()
             .optional()
-            .describe("Tron wallet address (T-prefixed). Adds USDT-TRC20 on Tron check."),
+            .describe("Tron wallet address (T-prefixed). Adds the tron dimension (USDT, USD1, WBTC)."),
           stellarWallet: z
             .string()
             .optional()
-            .describe("Stellar wallet address (G-prefixed). Adds institutional USDC and BENJI on Stellar checks."),
+            .describe("Stellar wallet address (G-prefixed). Lets the institutional USDC and BENJI on Stellar rows evaluate; adds no dimension."),
           suiWallet: z
             .string()
             .optional()
-            .describe("Sui wallet address (0x + 64 hex). Adds institutional USDC on Sui check."),
+            .describe("Sui wallet address (0x + 64 hex). Lets the institutional USDC on Sui and USDY on Sui rows evaluate; adds no dimension."),
         })
       )
       .min(1)
