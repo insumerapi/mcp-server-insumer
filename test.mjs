@@ -9,6 +9,8 @@
  * 4. Free live calls against the real API still work.
  * 5. The live pay-per-call path refuses a quote above the cap before signing.
  *    It uses a freshly generated, unfunded wallet, so no money can move.
+ * 6. Hosted mode: the HTTP runner serves the HOSTED_TOOLS subset and enforces
+ *    the daily cap before anything is sent.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -154,6 +156,31 @@ const badCap = await connect({ INSUMER_PAYMENT_KEY: generatePrivateKey(), INSUME
 const disabled = await badCap.callTool({ name: "insumer_attest", arguments: { wallet, conditions: [cond] } });
 assert(disabled.isError && /INSUMER_MAX_PAYMENT_USDC must be/.test(text(disabled)), "a malformed cap disables payments instead of falling back");
 await badCap.close();
+
+console.log("\n6. Hosted mode over streamable HTTP (HOSTED_TOOLS, daily cap 0)");
+{
+  const { spawn } = await import("node:child_process");
+  const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  const port = 3900 + Math.floor(Math.random() * 100);
+  const proc = spawn(process.execPath, ["build/http.js"], {
+    env: { ...process.env, PORT: String(port), INSUMER_API_KEY: "insr_live_test", INSUMER_DAILY_CAP: "0" },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  await new Promise((resolve) => proc.stderr.on("data", (d) => { if (String(d).includes("listening")) resolve(); }));
+  const url = new URL(`http://127.0.0.1:${port}/mcp`);
+  const info = await (await fetch(url)).json();
+  assert(info.ok && info.transport === "streamable-http", "a plain GET describes the endpoint");
+  const http = new Client({ name: "test-http", version: "0.0.0" });
+  await http.connect(new StreamableHTTPClientTransport(url));
+  const hosted = (await http.listTools()).tools.map((t) => t.name);
+  assert(hosted.length === 10 && hosted.includes("insumer_attest") && !hosted.includes("insumer_setup") && !hosted.includes("insumer_buy_key"), "hosted mode serves the 10 HOSTED_TOOLS and none of the key, credit or merchant tools");
+  const capped = await http.callTool({ name: "insumer_attest", arguments: { wallet, conditions: [cond] } });
+  assert(capped.isError && /daily allowance/.test(text(capped)), "a metered call past the cap is refused before anything is sent");
+  const free = await http.callTool({ name: "insumer_jwks", arguments: {} });
+  assert(!free.isError && /insumer-attest-v2/.test(text(free)), "a free tool still answers over HTTP");
+  await http.close();
+  proc.kill();
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

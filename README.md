@@ -89,6 +89,14 @@ Instead of a key, set `INSUMER_PAYMENT_KEY` to a **throwaway Base wallet** funde
 - **Every quote is checked before the wallet signs.** The server pays only InsumerAPI's own receiving address (`0xAd982CB19aCCa2923Df8F687C0614a7700255a23`), only in USDC on Base, and never more than the cap: **$3.00 per call by default**, the price of the largest call today (a 10-wallet trust batch with Merkle proofs). Anything else is refused and nothing is signed. Set `INSUMER_MAX_PAYMENT_USDC` to change the cap, e.g. `"0.25"` if you only attest. The cheapest call is $0.05, so a cap below that refuses every paid call (the server warns at startup). A malformed value turns pay-per-call off rather than falling back to the default.
 - If both `INSUMER_API_KEY` and `INSUMER_PAYMENT_KEY` are set, the key (credits) is used.
 
+## Hosted endpoint (no install)
+
+The same server runs at **`https://api.insumermodel.com/mcp`** over MCP streamable HTTP, for clients that connect by URL: ChatGPT plugins and developer-mode connectors, claude.ai custom connectors, and hosted agent platforms that cannot run an npm package. Paste the URL; there is nothing to configure.
+
+It is shared and anonymous, so it serves the ten tools that make sense without a caller identity (`HOSTED_TOOLS`: signing keys, attest, compliance templates, wallet trust and batch trust, the merchant and token directories, the free discount check, code validation), and the metered tools share one free daily allowance. Past it, a call is refused with a pointer here. For your own allowance, key and credit management, or the merchant tools, run the package locally with your key as above.
+
+To host the server yourself, build it and run `node build/http.js` with `INSUMER_API_KEY` set (`PORT`, `INSUMER_HOSTED_TOOLS` and `INSUMER_DAILY_CAP` are optional), or embed it: `createInsumerServer(options)` from the package root returns a configured server for any transport.
+
 ## What You Get Back
 
 When your agent calls `insumer_attest`, you get an ECDSA-signed attestation:

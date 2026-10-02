@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.15.0 (2026-10-02)
+
+- **The server can be hosted.** `createInsumerServer(options)` is exported from the package root and builds a configured server for any transport; the stdio binary is unchanged (`npx -y mcp-server-insumer` behaves exactly as before). `node build/http.js` serves it over MCP streamable HTTP, stateless, for deployments that are reached by URL.
+- **Hosted mode serves a subset.** `HOSTED_TOOLS` names the ten tools that make sense on a shared key with no caller identity: the signing keys, attest, compliance templates, wallet trust and batch trust, the merchant and token directories, the free discount check and code validation. Key and credit management, merchant management, discount creation and the credit balance are not served. `options.tools` sets any other list.
+- **A deployment can gate metered calls.** `options.beforeMeteredCall(path)` runs before attest, trust and batch trust; returning a message refuses the call and sends nothing. The HTTP runner uses it for a per-process daily allowance (`INSUMER_DAILY_CAP`, default 200).
+- Configuration warnings are returned from `createInsumerServer` instead of printed, so a host decides where they go. The stdio binary still prints them to stderr.
+- Tests cover hosted mode: the tool subset, the cap refusal, and a free call over HTTP.
+
 ## 1.14.1 (2026-10-02)
 
 - The MCP Registry entry moves to `com.insumermodel/insumer`, verified through the insumermodel.com domain instead of a personal GitHub account. The npm package name, the tools and the code are unchanged; `npx -y mcp-server-insumer` keeps working as before. The previous registry name, `io.github.douglasborthwick-crypto/insumer`, is deprecated with a pointer here.
