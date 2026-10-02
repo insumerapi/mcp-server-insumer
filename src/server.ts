@@ -41,6 +41,12 @@ export interface InsumerServerOptions {
    * error result and nothing is sent to the API), or null to allow it.
    */
   beforeMeteredCall?: (path: string) => Promise<string | null> | string | null;
+  /**
+   * Strip the key's own figures (meta.creditsRemaining) from responses. A
+   * hosted deployment on a shared key sets this so callers learn nothing
+   * about the key behind the endpoint. The signed payload is untouched.
+   */
+  hideKeyMeta?: boolean;
 }
 
 /**
@@ -278,7 +284,11 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-    return res.json() as Promise<ApiResult>;
+    const result = (await res.json()) as ApiResult;
+    if (options.hideKeyMeta && result.meta && typeof result.meta === "object") {
+      delete (result.meta as Record<string, unknown>).creditsRemaining;
+    }
+    return result;
   }
 
   // x402 pay-per-call: request the priced 402, check the quote, sign an EIP-3009

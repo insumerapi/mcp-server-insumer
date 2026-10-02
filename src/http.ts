@@ -74,6 +74,7 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     apiKey,
     tools: tools.length ? tools : HOSTED_TOOLS,
     beforeMeteredCall: countMetered,
+    hideKeyMeta: true,
   });
   for (const w of warnings) console.error(w);
   const transport = new StreamableHTTPServerTransport({

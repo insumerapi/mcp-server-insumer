@@ -178,6 +178,18 @@ console.log("\n6. Hosted mode over streamable HTTP (HOSTED_TOOLS, daily cap 0)")
   assert(capped.isError && /daily allowance/.test(text(capped)), "a metered call past the cap is refused before anything is sent");
   const free = await http.callTool({ name: "insumer_jwks", arguments: {} });
   assert(!free.isError && /insumer-attest-v2/.test(text(free)), "a free tool still answers over HTTP");
+  const { createInsumerServer } = await import("./build/server.js");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: { met: true }, meta: { version: "1.0", creditsRemaining: 9999, creditsCharged: 1 } }), { headers: { "Content-Type": "application/json" } });
+  try {
+    const hidden = createInsumerServer({ apiKey: "insr_live_test", hideKeyMeta: true }).server;
+    const shown = createInsumerServer({ apiKey: "insr_live_test" }).server;
+    const call = async (s) => { const h = s._registeredTools["insumer_attest"]; return text(await h.handler({ wallet, conditions: [cond] }, {})); };
+    assert(!/creditsRemaining/.test(await call(hidden)) && /creditsCharged/.test(await call(hidden)), "hideKeyMeta removes the key's balance from responses and keeps the charge");
+    assert(/creditsRemaining/.test(await call(shown)), "without hideKeyMeta the balance is still reported (local installs)");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
   await http.close();
   proc.kill();
 }
