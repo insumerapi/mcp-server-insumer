@@ -86,6 +86,7 @@ Instead of a key, set `INSUMER_PAYMENT_KEY` to a **throwaway Base wallet** funde
 
 - Base USDC only; the wallet needs USDC but **no ETH** (settlement is gasless).
 - Each call spends a few cents (attest $0.05, trust $0.15). Use a **dedicated throwaway wallet** funded with a small amount — never a wallet holding meaningful funds.
+- **Every quote is checked before the wallet signs.** The server pays only InsumerAPI's own receiving address (`0xAd982CB19aCCa2923Df8F687C0614a7700255a23`), only in USDC on Base, and never more than the cap: **$3.00 per call by default**, the price of the largest call today (a 10-wallet trust batch with Merkle proofs). Anything else is refused and nothing is signed. Set `INSUMER_MAX_PAYMENT_USDC` to change the cap, e.g. `"0.25"` if you only attest. The cheapest call is $0.05, so a cap below that refuses every paid call (the server warns at startup). A malformed value turns pay-per-call off rather than falling back to the default.
 - If both `INSUMER_API_KEY` and `INSUMER_PAYMENT_KEY` are set, the key (credits) is used.
 
 ## What You Get Back

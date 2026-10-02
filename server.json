@@ -6,22 +6,36 @@
     "url": "https://github.com/insumerapi/mcp-server-insumer",
     "source": "github"
   },
-  "version": "1.13.9",
+  "version": "1.14.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "mcp-server-insumer",
-      "version": "1.13.9",
+      "version": "1.14.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "description": "InsumerAPI key (starts with insr_live_)",
-          "isRequired": true,
+          "description": "InsumerAPI key (starts with insr_live_). Either this or INSUMER_PAYMENT_KEY.",
+          "isRequired": false,
           "format": "string",
           "isSecret": true,
           "name": "INSUMER_API_KEY"
+        },
+        {
+          "description": "Private key of a throwaway Base wallet holding a little USDC, for pay-per-call via x402 when no API key is set. Each quote is checked before signing.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "INSUMER_PAYMENT_KEY"
+        },
+        {
+          "description": "Most USDC the server will pay for one call in pay-per-call mode (default 3).",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "INSUMER_MAX_PAYMENT_USDC"
         }
       ]
     }

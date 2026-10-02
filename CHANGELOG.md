@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.14.0 (2026-10-02)
+
+- **Pay-per-call checks every quote before signing.** With `INSUMER_PAYMENT_KEY` set, the server used to sign whatever amount, recipient and token a 402 quote named. It now signs only when the quote pays InsumerAPI's own receiving address, in USDC on Base, under the `exact` scheme, for no more than a cap: $3.00 per call by default (the largest legitimate call today), adjustable with `INSUMER_MAX_PAYMENT_USDC`. Anything else is refused and nothing is signed. A malformed cap turns pay-per-call off instead of falling back to the default; a cap below the cheapest call ($0.05) triggers a startup warning.
+- **Every tool declares MCP annotations** (`title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`). Read-only is claimed only by tools that change nothing and spend nothing; tools that spend credits or a payment, or create records, are not read-only; tools that replace existing configuration are marked destructive.
+- **Every free-text input has a format and a length limit**: wallet addresses per chain, contract addresses and coin types, transaction hashes, merchant IDs, domains, discount codes, decimal amounts, hex data. Malformed input is rejected before any request is sent; the API still validates server-side.
+- Tool descriptions say what each tool does without telling the agent to call another tool, and point to llms.txt and the pricing page for counts and prices that change, instead of carrying them.
+- The buy tools say plainly that they submit a transaction hash and move no funds themselves.
+- The server reports its own version correctly (it said 1.13.8).
+- `server.json` lists `INSUMER_PAYMENT_KEY` and `INSUMER_MAX_PAYMENT_USDC`, and marks `INSUMER_API_KEY` optional, since either credential works.
+- Tests now run against the built server over MCP: the payment guard (including a live refusal with an unfunded wallet), annotations, input formats, and free live calls. `npm test`.
+
 ## 1.13.9 (2026-10-01)
 
 - Trust profile text follows the 2026-10-01 condition-set expansion, already live on `/v1/trust` and `/v1/trust/batch`: 145 base checks across 27 chains in 9 dimensions (adds tokenized_treasuries, stablecoin_deposits, wrapped_bitcoin and names; widens stablecoins to ten issuers on 23 EVM chains, governance to eight tokens, staking to five), up to 166 across 29 chains in 13 with the optional Solana (now a 14-check dimension), XRPL (RLUSD, USDC, OUSG), Bitcoin and Tron (USDT, USD1, WBTC) wallets. Stellar and Sui wallets add no dimension; their rows sit inside base dimensions and carry `evaluated: false` when the wallet is absent. `conditionSetVersion` is described as the dated set id (`2026-10`) that names the check list run; readers log it and never reject on it. Proof mode: computed-balance rows (Aave aTokens, BUIDL) are declined with a reason and the premium refunded. Tool descriptions, per-wallet parameter text, README, SKILL.md and the package description updated; no code path changed.
