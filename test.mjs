@@ -14,6 +14,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { generatePrivateKey } from "viem/accounts";
+import { readFileSync } from "node:fs";
+const PKG_VERSION = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 import {
   BASE_NETWORK,
   BASE_USDC,
@@ -117,7 +119,7 @@ assert(noCrossRefs === 27, `no description names another tool (got ${noCrossRefs
 const attest = tools.find((t) => t.name === "insumer_attest");
 assert(attest.annotations.readOnlyHint === false, "insumer_attest is not marked read-only (it spends credits or a payment)");
 const version = client.getServerVersion();
-assert(version?.version === "1.14.0", `server reports version 1.14.0 (got ${version?.version})`);
+assert(version?.version === PKG_VERSION, `server reports the package version ${PKG_VERSION} (got ${version?.version})`);
 
 console.log("\n3. Input formats");
 const wallet = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";

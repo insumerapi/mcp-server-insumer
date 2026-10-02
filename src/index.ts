@@ -15,7 +15,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-const VERSION = "1.14.0";
+const VERSION = "1.14.1";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 

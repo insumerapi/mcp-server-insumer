@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.1 (2026-10-02)
+
+- The MCP Registry entry moves to `com.insumermodel/insumer`, verified through the insumermodel.com domain instead of a personal GitHub account. The npm package name, the tools and the code are unchanged; `npx -y mcp-server-insumer` keeps working as before. The previous registry name, `io.github.douglasborthwick-crypto/insumer`, is deprecated with a pointer here.
+
 ## 1.14.0 (2026-10-02)
 
 - **Pay-per-call checks every quote before signing.** With `INSUMER_PAYMENT_KEY` set, the server used to sign whatever amount, recipient and token a 402 quote named. It now signs only when the quote pays InsumerAPI's own receiving address, in USDC on Base, under the `exact` scheme, for no more than a cap: $3.00 per call by default (the largest legitimate call today), adjustable with `INSUMER_MAX_PAYMENT_USDC`. Anything else is refused and nothing is signed. A malformed cap turns pay-per-call off instead of falling back to the default; a cap below the cheapest call ($0.05) triggers a startup warning.

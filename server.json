@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.douglasborthwick-crypto/insumer",
+  "name": "com.insumermodel/insumer",
   "description": "Read-first blockchain verification. ECDSA-signed booleans across 37 chains. 27 tools.",
   "repository": {
     "url": "https://github.com/insumerapi/mcp-server-insumer",
     "source": "github"
   },
-  "version": "1.14.0",
+  "version": "1.14.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "mcp-server-insumer",
-      "version": "1.14.0",
+      "version": "1.14.1",
       "transport": {
         "type": "stdio"
       },
