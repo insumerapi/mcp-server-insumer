@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.15.1 (2026-10-02)
+
+- The MCP Registry entry lists the hosted endpoint (`https://api.insumermodel.com/mcp`, streamable HTTP) beside the npm package, and its description now says what the server does in the project's own words. No code changes.
+
 ## 1.15.0 (2026-10-02)
 
 - **The server can be hosted.** `createInsumerServer(options)` is exported from the package root and builds a configured server for any transport; the stdio binary is unchanged (`npx -y mcp-server-insumer` behaves exactly as before). `node build/http.js` serves it over MCP streamable HTTP, stateless, for deployments that are reached by URL.
