@@ -12,7 +12,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-export const VERSION = "1.15.1";
+export const VERSION = "1.16.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -81,6 +81,41 @@ async function publicApiCall(
     body: body ? JSON.stringify(body) : undefined,
   });
   return res.json() as Promise<ApiResult>;
+}
+
+type ToolResult = {
+  content: { type: "text"; text: string }[];
+  isError?: boolean;
+  structuredContent?: Record<string, unknown>;
+};
+
+// The output schema every tool declares. It describes the response envelope
+// rather than each endpoint's payload, so it stays true as endpoints add fields.
+const RESULT_SCHEMA = z.object({
+  ok: z.boolean().optional().describe("true when the API call succeeded"),
+  data: z.unknown().optional().describe("The endpoint's payload: a signed attestation, trust profile, discount, merchant or token records"),
+  meta: z.unknown().optional().describe("Response metadata such as version and timestamp"),
+  error: z.unknown().optional().describe("Error details when ok is false"),
+  keys: z.array(z.unknown()).optional().describe("JWKS entries (insumer_jwks)"),
+  items: z.array(z.unknown()).optional().describe("The result when the endpoint returns a JSON array"),
+  message: z.unknown().optional().describe("A plain-text result (insumer_setup), or a message from the API"),
+}).passthrough();
+
+// Successful results carry their JSON as structuredContent; the text content is
+// left exactly as it was. Error results are passed through untouched.
+function withStructuredContent(result: ToolResult): ToolResult {
+  if (result.isError) return result;
+  const text = result.content[0]?.text ?? "";
+  let structured: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (Array.isArray(parsed)) structured = { items: parsed };
+    else if (parsed !== null && typeof parsed === "object") structured = parsed as Record<string, unknown>;
+    else structured = { message: text };
+  } catch {
+    structured = { message: text };
+  }
+  return { ...result, structuredContent: structured };
 }
 
 function formatResult(result: ApiResult) {
@@ -371,12 +406,24 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
     version: VERSION,
   });
 
-  // Register a tool unless the deployment left it out.
+  // Register a tool unless the deployment left it out. Every tool declares the
+  // shared output schema, and every successful result carries its JSON as
+  // structuredContent beside the unchanged text content.
   const allow = options.tools ? new Set(options.tools) : null;
-  const tool: McpServer["tool"] = ((name: string, ...rest: unknown[]) => {
+  const tool = (
+    name: string,
+    description: string,
+    inputSchema: z.ZodRawShape,
+    annotations: { title: string } & Record<string, unknown>,
+    handler: (args: any) => Promise<ToolResult>
+  ) => {
     if (allow && !allow.has(name)) return undefined;
-    return (server.tool as unknown as (...a: unknown[]) => unknown)(name, ...rest);
-  }) as McpServer["tool"];
+    return server.registerTool(
+      name,
+      { title: annotations.title, description, inputSchema, outputSchema: RESULT_SCHEMA, annotations },
+      async (args: any) => withStructuredContent(await handler(args))
+    );
+  };
 
   // ============================================================
   // KEY DISCOVERY

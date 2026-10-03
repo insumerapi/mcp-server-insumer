@@ -118,6 +118,8 @@ assert(annotated === 27, `all 27 tools carry the four hints (got ${annotated})`)
 assert(honest === 27, `read-only and destructive hints match the intended classification (got ${honest})`);
 assert(titled === 27, `all 27 tools have a title (got ${titled})`);
 assert(noCrossRefs === 27, `no description names another tool (got ${noCrossRefs})`);
+const withOutput = tools.filter((t) => t.outputSchema?.type === "object" && t.outputSchema.properties?.ok && t.outputSchema.properties?.data).length;
+assert(withOutput === 27, `all 27 tools declare the result output schema (got ${withOutput})`);
 const attest = tools.find((t) => t.name === "insumer_attest");
 assert(attest.annotations.readOnlyHint === false, "insumer_attest is not marked read-only (it spends credits or a payment)");
 const version = client.getServerVersion();
@@ -142,6 +144,10 @@ const merchants = await client.callTool({ name: "insumer_list_merchants", argume
 assert(!merchants.isError, "insumer_list_merchants answers");
 const code = await client.callTool({ name: "insumer_validate_code", arguments: { code: "INSR-ZZZZZ" } });
 assert(/valid/i.test(text(code)), "insumer_validate_code answers for a well-formed code");
+const sameJson = (r) => { try { return JSON.stringify(r.structuredContent) === JSON.stringify(JSON.parse(text(r))); } catch { return false; } };
+assert(Array.isArray(jwks.structuredContent?.keys) && sameJson(jwks), "insumer_jwks carries the key set as structuredContent, identical to its text");
+assert(merchants.structuredContent && sameJson(merchants), "insumer_list_merchants carries structuredContent identical to its text");
+assert(code.structuredContent && sameJson(code), "insumer_validate_code carries structuredContent identical to its text");
 const noCreds = await client.callTool({ name: "insumer_attest", arguments: { wallet, conditions: [cond] } });
 assert(noCreds.isError && /No credentials/.test(text(noCreds)), "attest without credentials says so and sends nothing paid");
 await client.close();
@@ -178,6 +184,7 @@ console.log("\n6. Hosted mode over streamable HTTP (HOSTED_TOOLS, daily cap 0)")
   assert(capped.isError && /daily allowance/.test(text(capped)), "a metered call past the cap is refused before anything is sent");
   const free = await http.callTool({ name: "insumer_jwks", arguments: {} });
   assert(!free.isError && /insumer-attest-v2/.test(text(free)), "a free tool still answers over HTTP");
+  assert(Array.isArray(free.structuredContent?.keys), "the hosted transport carries structuredContent too");
   const { createInsumerServer } = await import("./build/server.js");
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: { met: true }, meta: { version: "1.0", creditsRemaining: 9999, creditsCharged: 1 } }), { headers: { "Content-Type": "application/json" } });

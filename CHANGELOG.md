@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.16.0 (2026-10-03)
 
+- **Every tool declares an output schema.** The 27 tools share one schema describing the response envelope (`ok`, `data`, `meta`, `error`, plus `keys` for the JWKS and `message` for plain-text results), open to further fields so it stays true as endpoints grow.
+- **Successful results carry `structuredContent`:** the same JSON the text content already held, parsed. The text content is unchanged, so clients that read it see no difference. Error results are unchanged.
+- The `kyc` package keyword is removed. InsumerAPI reads wallet state; it is not an identity or KYC service.
 - The HTTP runner answers any non-POST request with 405. A stateless server has no server-initiated stream to offer, and the SDK transport kept a GET event stream open indefinitely. (The hosted endpoint at api.insumermodel.com/mcp has had this since 2026-10-03.)
 
 ## 1.15.1 (2026-10-02)
