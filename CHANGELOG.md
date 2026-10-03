@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The HTTP runner answers any non-POST request with 405. A stateless server has no server-initiated stream to offer, and the SDK transport kept a GET event stream open indefinitely. (The hosted endpoint at api.insumermodel.com/mcp has had this since 2026-10-03.)
+
 ## 1.15.1 (2026-10-02)
 
 - The MCP Registry entry lists the hosted endpoint (`https://api.insumermodel.com/mcp`, streamable HTTP) beside the npm package, and its description now says what the server does in the project's own words. No code changes.

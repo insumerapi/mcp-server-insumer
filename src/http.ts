@@ -70,6 +70,14 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     res.end(JSON.stringify(INFO));
     return;
   }
+  // Stateless: no server-initiated stream to offer and no session to end. The
+  // spec's answer for both is 405; without it a GET stream stays open.
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json", Allow: "POST" });
+    res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed. This server is stateless: send MCP requests with POST." }, id: null }));
+    return;
+  }
+
   const { server, warnings } = createInsumerServer({
     apiKey,
     tools: tools.length ? tools : HOSTED_TOOLS,
