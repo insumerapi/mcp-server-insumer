@@ -4,11 +4,11 @@
 
 MCP server for [InsumerAPI](https://insumermodel.com/developers/): condition-based access infrastructure. Send a wallet and conditions, get a signed boolean across 37 chains. No balances exposed, no identity required. Every result is signed and checkable offline against the published keys, and on EVM chains an optional Merkle proof lets the verifier check the balance against the block header without trusting the API.
 
-Enables AI agents (Claude Desktop, Cursor, Windsurf, and any MCP-compatible client) to add condition-based access to any workflow — verify on-chain conditions, discover merchants, generate signed discount codes, and onboard new merchants.
+Enables AI agents (Claude Desktop, Cursor, Windsurf, and any MCP-compatible client) to add condition-based access to any workflow: verify on-chain conditions, discover merchants, generate signed discount codes, and onboard new merchants.
 
-**In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook) — a regulated payments stack — runs live ERC-8183 agentic-commerce trust scoring on InsumerAPI. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
+**In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook), a regulated payments stack, uses InsumerAPI attestations in its live ERC-8183 agentic-commerce trust checks. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
 
-Also available as: [LangChain](https://pypi.org/project/langchain-insumer/) (26 tools, PyPI) | [ElizaOS](https://www.npmjs.com/package/@insumermodel/plugin-eliza) (10 actions, npm) | [OpenAI GPT](https://chatgpt.com/g/g-699c5e43ce2481918b3f1e7f144c8a49-insumerapi-verify) (GPT Store) | [insumer-verify](https://www.npmjs.com/package/insumer-verify) (client-side verification, npm)
+Also available as: [LangChain](https://pypi.org/project/langchain-insumer/) (26 tools, PyPI) | [ElizaOS](https://www.npmjs.com/package/@insumermodel/plugin-eliza) (10 actions, npm) | [OpenAI GPT](https://chatgpt.com/g/g-699c5e43ce2481918b3f1e7f144c8a49-insumerapi-wallet-auth) (GPT Store) | [insumer-verify](https://www.npmjs.com/package/insumer-verify) (client-side verification, npm)
 
 **[Full AI Agent Verification API guide](https://insumermodel.com/ai-agent-verification-api/)**: covers all 37 chains, trust profiles, commerce protocols, and signature verification.
 
@@ -48,13 +48,13 @@ Add to your MCP settings:
 }
 ```
 
-### Get a key — no signup, no dashboard, no password
+### Get a key: no signup, no dashboard, no password
 
 Three paths, all give you a working `insr_live_...` key in seconds with 100 reads/day and 10 verification credits. One free key per email.
 
-**Option A — Let your agent do it:** Start the server without a key. Your AI agent can call the `insumer_setup` tool with your email to generate a free key instantly. Add it to your config and restart.
+**Option A: let your agent do it.** Start the server without a key. Your AI agent can call the `insumer_setup` tool with your email to generate a free key instantly. Add it to your config and restart.
 
-**Option B — Terminal:**
+**Option B: terminal.**
 
 ```bash
 curl -s -X POST https://api.insumermodel.com/v1/keys/create \
@@ -62,15 +62,15 @@ curl -s -X POST https://api.insumermodel.com/v1/keys/create \
   -d '{"email": "you@example.com", "appName": "MCP Server", "tier": "free"}'
 ```
 
-**Option C — Browser:** Enter your email on [insumermodel.com](https://insumermodel.com/?utm_source=npm-mcp-server-insumer) — the key appears inline.
+**Option C: browser.** Enter your email on [insumermodel.com](https://insumermodel.com/?utm_source=npm-mcp-server-insumer) and the key appears inline.
 
 Set it as `INSUMER_API_KEY` in your config.
 
 **Already have a key?** Manage usage, top up, or upgrade at [insumermodel.com/developers/account/](https://insumermodel.com/developers/account/?utm_source=npm-mcp-server-insumer).
 
-### Option D — Pay per call with x402 (no key at all)
+### Option D: pay per call with x402 (no key at all)
 
-Instead of a key, set `INSUMER_PAYMENT_KEY` to a **throwaway Base wallet** funded with a few dollars of USDC. Metered calls (`insumer_attest`, `insumer_wallet_trust`, `insumer_batch_wallet_trust`) are then paid inline via [x402](https://www.x402.org) — the server requests a price, signs an EIP-3009 USDC authorization on Base, and retries. No signup, no credits, no dashboard.
+Instead of a key, set `INSUMER_PAYMENT_KEY` to a **throwaway Base wallet** funded with a few dollars of USDC. Metered calls (`insumer_attest`, `insumer_wallet_trust`, `insumer_batch_wallet_trust`) are then paid inline via [x402](https://www.x402.org): the server requests a price, signs an EIP-3009 USDC authorization on Base, and retries. No signup, no credits, no dashboard.
 
 ```json
 {
@@ -85,7 +85,7 @@ Instead of a key, set `INSUMER_PAYMENT_KEY` to a **throwaway Base wallet** funde
 ```
 
 - Base USDC only; the wallet needs USDC but **no ETH** (settlement is gasless).
-- Each call spends a few cents (attest $0.05, trust $0.15). Use a **dedicated throwaway wallet** funded with a small amount — never a wallet holding meaningful funds.
+- Each call spends a few cents (attest $0.05, trust $0.15). Use a **dedicated throwaway wallet** funded with a small amount, never a wallet holding meaningful funds.
 - **Every quote is checked before the wallet signs.** The server pays only InsumerAPI's own receiving address (`0xAd982CB19aCCa2923Df8F687C0614a7700255a23`), only in USDC on Base, and never more than the cap: **$3.00 per call by default**, the price of the largest call today (a 10-wallet trust batch with Merkle proofs). Anything else is refused and nothing is signed. Set `INSUMER_MAX_PAYMENT_USDC` to change the cap, e.g. `"0.25"` if you only attest. The cheapest call is $0.05, so a cap below that refuses every paid call (the server warns at startup). A malformed value turns pay-per-call off rather than falling back to the default.
 - If both `INSUMER_API_KEY` and `INSUMER_PAYMENT_KEY` are set, the key (credits) is used.
 
@@ -164,7 +164,7 @@ Add `format: "jwt"` to the `insumer_attest` tool parameters to receive the attes
 }
 ```
 
-The response includes an additional `jwt` field containing an ES256-signed JWT, and beside it a `pqJwt` sibling (a compact JWS with `alg` ML-DSA-65 carrying the same claims, signed under `insumer-attest-pq1`). The `jwt` token is verifiable by any standard JWT library via the JWKS endpoint at `GET /v1/jwks` — making it compatible with Kong, Nginx, Cloudflare Access, AWS API Gateway, and other middleware that accepts JWT bearer tokens.
+The response includes an additional `jwt` field containing an ES256-signed JWT, and beside it a `pqJwt` sibling (a compact JWS with `alg` ML-DSA-65 carrying the same claims, signed under `insumer-attest-pq1`). The `jwt` token is verifiable by any standard JWT library via the JWKS endpoint at `GET /v1/jwks`, which makes it compatible with Kong, Nginx, Cloudflare Access, AWS API Gateway, and other middleware that accepts JWT bearer tokens.
 
 ## Verify the Response
 
@@ -178,7 +178,7 @@ npm install insumer-verify
 import { verifyAttestation } from "insumer-verify";
 
 // attestationResponse = the full API envelope {ok, data: {attestation, sig, kid, pqSig, pqKid}, meta}
-// Do NOT pass attestationResponse.data — the function expects the outer envelope
+// Do NOT pass attestationResponse.data; the function expects the outer envelope
 const result = await verifyAttestation(attestationResponse, {
   jwksUrl: "https://insumermodel.com/.well-known/jwks.json",
   maxAge: 120, // reject if block data is older than 2 minutes
@@ -215,7 +215,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 | Tool | Description |
 |------|-------------|
-| `insumer_attest` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity, `evm_view_call` for arbitrary boolean view functions, `ratio_to_amount` for self-scaling agent-spend limits and `ratio_to_supply` for share-of-supply rules — all three RPC EVM only, plus `erc8004_agent` for ERC-8004 agent registration and `erc7710_delegation` for MetaMask-framework delegation validity, both on Base). Returns ECDSA-signed boolean with `kid`, `evaluatedCondition`, `conditionHash` (SHA-256), and `blockNumber`/`blockTimestamp`. 1 credit. Optional `proof: "merkle"` for EIP-1186 Merkle storage proofs (2 credits). |
+| `insumer_attest` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity, `evm_view_call` for arbitrary boolean view functions, `ratio_to_amount` for self-scaling agent-spend limits and `ratio_to_supply` for share-of-supply rules; all three RPC EVM only, plus `erc8004_agent` for ERC-8004 agent registration and `erc7710_delegation` for MetaMask-framework delegation validity, both on Base). Returns ECDSA-signed boolean with `kid`, `evaluatedCondition`, `conditionHash` (SHA-256), and `blockNumber`/`blockTimestamp`. 1 credit. Optional `proof: "merkle"` for EIP-1186 Merkle storage proofs (2 credits). |
 | `insumer_compliance_templates` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). Free. |
 | `insumer_wallet_trust` | Generate ECDSA-signed wallet trust fact profile. 145 base checks across 27 chains in 9 dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names), up to 166 checks across 29 chains in 13 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets (Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check. The signed `conditionSetVersion` (currently `2026-10`) names the check list; log it, never reject on it. 3 credits (6 with merkle; the premium is refunded for any row no storage proof can cover). |
 | `insumer_batch_wallet_trust` | Batch trust profiles for up to 10 wallets. Each wallet object supports optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, and `suiWallet`. Shared block fetches, 5-8x faster. Partial success supported. 3 credits/wallet (6 with merkle). |
@@ -282,7 +282,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 ## Handling `rpc_failure` Errors
 
-If the API cannot reach one or more blockchain data sources after retries, endpoints that produce signed attestations (`insumer_attest`, `insumer_wallet_trust`, `insumer_batch_wallet_trust`) return `ok: false` with error code `rpc_failure`. No signature, no JWT, no credits charged. This is a retryable error — the MCP client should retry after a short delay (2-5 seconds).
+If the API cannot reach one or more blockchain data sources after retries, endpoints that produce signed attestations (`insumer_attest`, `insumer_wallet_trust`, `insumer_batch_wallet_trust`) return `ok: false` with error code `rpc_failure`. No signature, no JWT, no credits charged. This is a retryable error: the MCP client should retry after a short delay (2-5 seconds).
 
 **Important:** `rpc_failure` is NOT a verification failure. Do not treat it as `pass: false`. It means the data source was temporarily unavailable and the API refused to sign an unverified result.
 
@@ -292,7 +292,7 @@ If the API cannot reach one or more blockchain data sources after retries, endpo
 
 ## Also Available As
 
-- **Claude Code Skill:** `smithery skill add douglasborthwick/insumer-skill` ([Smithery](https://smithery.ai/skills/douglasborthwick/insumer-skill) · [GitHub](https://github.com/insumerapi/insumer-skill)) — for *writing* wallet auth into your own projects from inside Claude Code. This MCP server gives an agent runtime access to the API; insumer-skill helps developers author integration code at build time. Different surfaces, same primitive.
+- **Claude Code Skill:** `smithery skill add douglasborthwick/insumer-skill` ([Smithery](https://smithery.ai/skills/douglasborthwick/insumer-skill) · [GitHub](https://github.com/insumerapi/insumer-skill)), for *writing* wallet auth into your own projects from inside Claude Code. This MCP server gives an agent runtime access to the API; insumer-skill helps developers author integration code at build time. Different surfaces, same primitive.
 - **ElizaOS Plugin:** `@insumermodel/plugin-eliza` ([npm](https://www.npmjs.com/package/@insumermodel/plugin-eliza))
 - **LangChain (Python):** `pip install langchain-insumer` ([PyPI](https://pypi.org/project/langchain-insumer/))
 - **OpenAI GPT:** [InsumerAPI Wallet Auth](https://chatgpt.com/g/g-699c5e43ce2481918b3f1e7f144c8a49-insumerapi-wallet-auth) (GPT Store)
