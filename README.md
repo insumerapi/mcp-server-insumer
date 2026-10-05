@@ -219,7 +219,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 | `insumer_compliance_templates` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). Free. |
 | `insumer_wallet_trust` | Generate ECDSA-signed wallet trust fact profile. 145 base checks across 27 chains in 9 dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names), up to 166 checks across 29 chains in 13 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets (Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check. The signed `conditionSetVersion` (currently `2026-10`) names the check list; log it, never reject on it. 3 credits (6 with merkle; the premium is refunded for any row no storage proof can cover). |
 | `insumer_batch_wallet_trust` | Batch trust profiles for up to 10 wallets. Each wallet object supports optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, and `suiWallet`. Shared block fetches, 5-8x faster. Partial success supported. 3 credits/wallet (6 with merkle). |
-| `insumer_verify` | Create signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. 1 merchant credit. |
+| `insumer_verify` | Create signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. 1 merchant credit. Optional `walletProof` proves you control the EVM wallet: full discount, no daily limit. |
 
 ### Discovery (free)
 
@@ -247,7 +247,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 | `insumer_merchant_status` | Get full private merchant details. |
 | `insumer_configure_tokens` | Set token discount tiers. Tier discounts are whole numbers from 1 to 50. Tokens can carry a display `name` and `logo`; the own token takes `enabled`. |
 | `insumer_configure_nfts` | Set NFT collections: a whole-number discount from 1 to 50, or `benefitType: "recognition"` for recognition only. `enabled: false` keeps a collection switched off. |
-| `insumer_configure_settings` | Set discount mode, cap, USDC payments. |
+| `insumer_configure_settings` | Set discount mode, cap, the terms for wallets without proof of control, USDC payments. |
 | `insumer_publish_directory` | Publish merchant to public directory. |
 | `insumer_buy_merchant_credits` | Buy merchant verification credits with USDC, USDT, BTC, or USDT-TRC20. Volume discounts: $0.04–$0.02/call. Owner only. Non-refundable. First purchase registers sender wallet; subsequent purchases must match or include `updateWallet: true`. |
 

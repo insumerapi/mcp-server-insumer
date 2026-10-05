@@ -12,7 +12,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-export const VERSION = "1.16.2";
+export const VERSION = "1.17.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -259,6 +259,22 @@ const WalletFields = {
   solanaWallet: SolanaAddress.optional().describe("Solana wallet address (base58)"),
   xrplWallet: XrplAddress.optional().describe("XRPL wallet address (r-address)"),
 };
+
+// Optional proof that the caller controls the EVM wallet, on the discount-issuing tools.
+const WalletProof = z
+  .object({
+    message: z.string().max(4096).describe("The EIP-4361 message, exactly as signed"),
+    signature: z.string().regex(/^0x[0-9a-fA-F]+$/, "0x hex signature").max(2000).describe("The wallet's personal_sign (EIP-191) signature over the message"),
+  })
+  .optional()
+  .describe(
+    "Optional proof that you control 'wallet' (EVM only; send it without solanaWallet or xrplWallet). " +
+    "Sign this EIP-4361 message with the wallet, within 5 minutes, with a nonce you never reused:\n" +
+    "api.insumermodel.com wants you to sign in with your Ethereum account:\n<wallet>\n\nProve wallet for a discount.\n\n" +
+    "URI: https://api.insumermodel.com/v1/merchants/<merchantId>\nVersion: 1\nChain ID: 1\nNonce: <8+ random letters or digits>\nIssued At: <ISO 8601 time now>\n" +
+    "A proven wallet gets the store's full discount with no daily limit. Without it, the store's terms for unproven wallets apply (see walletTerms on the merchant). " +
+    "A proof that fails returns 401 and uses no credit. Smart-contract wallets are not accepted yet."
+  );
 
 const COUNTS_NOTE = "Current chain and check counts: https://insumermodel.com/llms.txt";
 const PRICING_NOTE = "Current prices and volume discounts: https://insumermodel.com/pricing/";
@@ -648,10 +664,11 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_verify",
-    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no.",
+    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the store's full discount applies with no daily limit. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
+      walletProof: WalletProof,
     },
     { title: "Create a discount code", ...SPENDS },
     async (args) => {
@@ -666,7 +683,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_list_merchants",
-    "Browse merchants in the public directory. Filter by accepted token, verification status. Returns company name, website, tokens accepted, and discount info.",
+    "Browse merchants in the public directory. Filter by accepted token, verification status. Returns company name, website, tokens accepted, discount info, and walletTerms (the store's terms with and without proof of wallet control).",
     {
       token: ShortText(32).optional().describe("Filter by accepted token symbol, e.g. 'UNI'"),
       verified: z.enum(["true", "false"]).optional().describe("Filter by domain verification status"),
@@ -693,7 +710,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_get_merchant",
-    "Get full public merchant profile including token tiers, NFT collections, discount mode, and verification status.",
+    "Get full public merchant profile including token tiers, NFT collections, discount mode, verification status, and walletTerms: what the store gives a wallet with and without proof of control, so you can decide whether to sign before creating a code.",
     {
       id: MerchantId.describe("Merchant ID"),
     },
@@ -736,7 +753,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_check_discount",
-    "Calculate discount for a wallet at a merchant. Checks on-chain balances and returns tier and discount percentage per token, never raw balance amounts. Free: does not consume credits. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete: retry, and never treat it as not eligible.",
+    "Calculate discount for a wallet at a merchant. Checks on-chain balances and returns tier and discount percentage per token, never raw balance amounts. Free: does not consume credits. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete: retry, and never treat it as not eligible. The check carries no proof of wallet control, so totalDiscount is what an unproven wallet gets; walletTerms gives the store's terms, and discountIfProven (when present) is what signing would get.",
     {
       merchant: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -912,7 +929,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_configure_settings",
-    "Update merchant settings: discount stacking mode, cap, and stablecoin payment configuration. All fields optional; supplied fields replace their current values. discountCap is a whole number from 1 to 100. Owner only.",
+    "Update merchant settings: discount stacking mode, cap, the store's terms for wallets sent without proof of control, and stablecoin payment configuration. All fields optional; supplied fields replace their current values. discountCap is a whole number from 1 to 100. A wallet with proof always gets the full discount with no daily limit. Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
       discountMode: z
@@ -926,6 +943,22 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
         .max(100)
         .optional()
         .describe("Maximum total discount percentage: a whole number from 1 to 100, no decimals"),
+      maxUnprovenDiscount: z
+        .number()
+        .int()
+        .min(0)
+        .max(100)
+        .nullable()
+        .optional()
+        .describe("Most a wallet without proof of control can get, in percent: 0 = no discount, null = the same as a proven wallet"),
+      maxDiscountsPerWalletPerDay: z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .nullable()
+        .optional()
+        .describe("Discounted orders per UTC day for a wallet without proof of control; null = no limit"),
       usdcPayment: z
         .object({
           enabled: z.boolean().describe("Enable or disable USDC payments"),
@@ -1044,10 +1077,11 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_acp_discount",
-    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no.",
+    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the store's full discount applies with no daily limit. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
+      walletProof: WalletProof,
       items: LineItems,
     },
     { title: "Discount in ACP format", ...SPENDS },
@@ -1059,10 +1093,11 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_ucp_discount",
-    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no.",
+    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the store's full discount applies with no daily limit. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
+      walletProof: WalletProof,
       items: LineItems,
     },
     { title: "Discount in UCP format", ...SPENDS },
@@ -1074,7 +1109,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_validate_code",
-    "Validate an INSR-XXXXX discount code. For merchant backends during ACP/UCP checkout to confirm code validity, discount percent, and expiry. Returns valid/invalid status with reason. No authentication required, no credits consumed. Does not expose wallet or token data.",
+    "Validate an INSR-XXXXX discount code. For merchant backends during ACP/UCP checkout to confirm code validity, discount percent, and expiry. Returns valid/invalid status with reason, and walletProven (whether the code went to a caller that proved control of the wallet). No authentication required, no credits consumed. Does not expose wallet or token data.",
     {
       code: DiscountCode.describe("Discount code in INSR-XXXXX format"),
     },

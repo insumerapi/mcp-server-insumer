@@ -142,6 +142,8 @@ assert(await rejects(client, "insumer_attest", { xrplWallet: "rN7n7otQDd6FczFgLd
 assert(await rejects(client, "insumer_configure_nfts", { id: "acme", nftCollections: [{ name: "A", contractAddress: "0x" + "a".repeat(40), chainId: 1, discount: 12.5 }] }), "configure_nfts rejects a discount with decimals");
 assert(await rejects(client, "insumer_configure_nfts", { id: "acme", nftCollections: [{ name: "A", contractAddress: "0x" + "a".repeat(40), chainId: 1, discount: 10, enabled: "false" }] }), "configure_nfts rejects enabled as a string");
 assert(await rejects(client, "insumer_configure_settings", { id: "acme", discountCap: 12.5 }), "configure_settings rejects a cap with decimals");
+assert(await rejects(client, "insumer_configure_settings", { id: "acme", maxUnprovenDiscount: 101 }), "configure_settings rejects an unproven discount above 100");
+assert(await rejects(client, "insumer_verify", { merchantId: "acme", wallet: "0x" + "a".repeat(40), walletProof: { message: "m", signature: "not-hex" } }), "verify rejects a walletProof signature that is not hex");
 {
   const props = (name) => Object.keys(tools.find((t) => t.name === name).inputSchema.properties);
   const merchantTools = ["insumer_verify", "insumer_check_discount", "insumer_acp_discount", "insumer_ucp_discount"];
@@ -152,6 +154,12 @@ assert(await rejects(client, "insumer_configure_settings", { id: "acme", discoun
   assert(nft.enabled?.type === "boolean" && Array.isArray(nft.benefitType?.enum), "configure_nfts carries enabled and benefitType");
   const own = JSON.stringify(tools.find((t) => t.name === "insumer_configure_tokens").inputSchema.properties.ownToken);
   assert(/"name"/.test(own) && /"logo"/.test(own) && /"enabled"/.test(own), "configure_tokens carries name, logo and the own token's enabled");
+  const issuing = ["insumer_verify", "insumer_acp_discount", "insumer_ucp_discount"];
+  assert(issuing.every((n) => props(n).includes("walletProof")) && !props("insumer_check_discount").includes("walletProof"), "the code-issuing tools take walletProof; the free check does not");
+  const proofSchema = JSON.stringify(tools.find((t) => t.name === "insumer_verify").inputSchema.properties.walletProof);
+  assert(/api\.insumermodel\.com\/v1\/merchants\//.test(proofSchema) && /"message"/.test(proofSchema) && /"signature"/.test(proofSchema), "walletProof states the message to sign and takes message and signature");
+  const settings = tools.find((t) => t.name === "insumer_configure_settings").inputSchema.properties;
+  assert(settings.maxUnprovenDiscount && settings.maxDiscountsPerWalletPerDay, "configure_settings carries the terms for wallets without proof");
   const suiTyped = JSON.stringify(attest.inputSchema.properties.conditions.items.properties.contractAddress);
   assert(/600/.test(suiTyped), "attest accepts a Sui coin type with type parameters");
 }

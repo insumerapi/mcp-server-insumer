@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.17.0 (2026-10-05)
+
+- **Prove the wallet for a discount.** `insumer_verify`, `insumer_acp_discount` and `insumer_ucp_discount` take an optional `walletProof` (`{ message, signature }`): an EIP-4361 message signed by the EVM wallet, with URI `https://api.insumermodel.com/v1/merchants/{merchantId}`. The field's description carries the exact message to sign. A proven wallet gets the store's full discount with no daily limit, and the response says `walletProven: true`. Without a proof, the store's terms for unproven wallets apply, and `discountIfProven` shows what a proof would get. A proof that fails returns 401 and uses no credit. EVM wallets only; smart-contract wallets are not accepted yet.
+- **Read the terms before calling.** `insumer_get_merchant`, `insumer_list_merchants` and `insumer_check_discount` describe `walletTerms`: what the store gives with and without proof. The free check's `totalDiscount` is what an unproven wallet gets.
+- **`insumer_configure_settings` carries the store's terms for unproven wallets:** `maxUnprovenDiscount` (0 to 100, or null for the same as proven) and `maxDiscountsPerWalletPerDay` (1 to 100, or null).
+- `insumer_validate_code` describes `walletProven` on a code.
+
 ## 1.16.2 (2026-10-05)
 
 - **Tool descriptions say what `rpc_failure` means.** `insumer_attest`, `insumer_wallet_trust`, `insumer_verify`, `insumer_check_discount`, `insumer_acp_discount` and `insumer_ucp_discount` each state that an `rpc_failure` error (503) means a read did not complete, nothing was signed, and the call should be retried: it is never a "no". `insumer_batch_wallet_trust` states the same for its per-wallet error entries. `SKILL.md` carries the same guidance.
