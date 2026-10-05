@@ -287,7 +287,7 @@ const WalletProof = z
     "Sign this EIP-4361 message with the wallet, within 5 minutes, with a nonce you never reused:\n" +
     "api.insumermodel.com wants you to sign in with your Ethereum account:\n<wallet>\n\nProve wallet for a discount.\n\n" +
     "URI: https://api.insumermodel.com/v1/merchants/<merchantId>\nVersion: 1\nChain ID: 1\nNonce: <8+ random letters or digits>\nIssued At: <ISO 8601 time now>\n" +
-    "A proven wallet gets the store's full discount with no daily limit. Without it, the store's terms for unproven wallets apply (see walletTerms on the merchant). " +
+    "A proven wallet gets the full discount its holdings earn (under the store's tiers and cap), without the daily limit for unproven wallets. Without it, the store's terms for unproven wallets apply (see walletTerms on the merchant). " +
     "A proof that fails returns 401 and uses no credit. Smart-contract wallets are not accepted yet."
   );
 
@@ -679,7 +679,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_verify",
-    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the store's full discount applies with no daily limit. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
+    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -944,7 +944,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_configure_settings",
-    "Update merchant settings: discount stacking mode, cap, the store's terms for wallets sent without proof of control, and stablecoin payment configuration. All fields optional; supplied fields replace their current values. discountCap is a whole number from 1 to 100. A wallet with proof always gets the full discount with no daily limit. Owner only.",
+    "Update merchant settings: discount stacking mode, cap, the store's terms for wallets sent without proof of control, and stablecoin payment configuration. All fields optional; supplied fields replace their current values. discountCap is a whole number from 1 to 100. A wallet with proof gets the full discount their holdings earn, without the daily limit for unproven buyers. Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
       discountMode: z
@@ -973,7 +973,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
         .max(100)
         .nullable()
         .optional()
-        .describe("Discounted orders per UTC day for a wallet without proof of control; null = no limit"),
+        .describe("Discount codes per UTC day for a wallet without proof of control; null = no limit"),
       usdcPayment: z
         .object({
           enabled: z.boolean().describe("Enable or disable USDC payments"),
@@ -1092,7 +1092,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_acp_discount",
-    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the store's full discount applies with no daily limit. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
+    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -1108,7 +1108,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_ucp_discount",
-    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the store's full discount applies with no daily limit. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
+    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
