@@ -282,7 +282,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 ## Handling `rpc_failure` Errors
 
-If the API cannot reach one or more blockchain data sources after retries, endpoints that produce signed attestations (`insumer_attest`, `insumer_wallet_trust`, `insumer_batch_wallet_trust`) return `ok: false` with error code `rpc_failure`. No signature, no JWT, no credits charged. This is a retryable error: the MCP client should retry after a short delay (2-5 seconds).
+If the API cannot reach one or more blockchain data sources after retries, `insumer_attest`, `insumer_wallet_trust`, `insumer_verify`, `insumer_acp_discount`, `insumer_ucp_discount` and `insumer_check_discount` return `ok: false` with error code `rpc_failure`. No signature, no JWT, no credits charged. `insumer_batch_wallet_trust` answers normally and carries an `error` entry for any wallet whose reads did not complete, beside the wallets that were signed. This is a retryable error: the MCP client should retry after a short delay (2-5 seconds).
 
 **Important:** `rpc_failure` is NOT a verification failure. Do not treat it as `pass: false`. It means the data source was temporarily unavailable and the API refused to sign an unverified result.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.16.1 (2026-10-04)
+
+- **XRPL currency codes are accepted in every form the API accepts.** `currency` on `insumer_attest` and on the merchant token tool takes a 3-character code, a token name of 1 to 20 printable ASCII characters, or a 40-character hex code, including codes that carry symbols. The description states that codes are case-sensitive and are sent exactly as issued.
+- The README lists every tool that can answer `rpc_failure`, and describes how `insumer_batch_wallet_trust` reports a wallet whose reads did not complete.
+- The MCP Registry description carries no tool count.
+
 ## 1.16.0 (2026-10-03)
 
 - **Every tool declares an output schema.** The 27 tools share one schema describing the response envelope (`ok`, `data`, `meta`, `error`, plus `keys` for the JWKS and `message` for plain-text results), open to further fields so it stays true as endpoints grow.

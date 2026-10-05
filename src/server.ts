@@ -12,7 +12,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-export const VERSION = "1.16.0";
+export const VERSION = "1.16.1";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -224,7 +224,7 @@ const TokenConfigSchema = z.object({
   chainId: OnboardingChainId,
   contractAddress: ContractRef.describe("Token contract address. For XRPL: use r-address issuer for trust line tokens, or 'native' for XRP."),
   decimals: z.number().int().min(0).max(18).describe("Token decimals (0-18). Required: the merchant registry stores it with each token and rejects a config without it. 6 for USDC, 18 for most ERC-20s."),
-  currency: z.string().max(40).regex(/^[A-Za-z0-9]+$/).optional().describe("XRPL trust line currency code (e.g. 'RLUSD', 'USDC', or 'USD'). Required for XRPL trust line tokens. Standard codes ≤ 3 chars; longer names like 'RLUSD' are auto hex-encoded by the API."),
+  currency: z.string().min(1).max(40).regex(/^[\x20-\x7E]+$/).optional().describe("XRPL trust line currency code: a 3-character code (e.g. 'USD'), a token name of 1 to 20 printable ASCII characters (e.g. 'RLUSD'), or a 40-character hex code. Case-sensitive: send it exactly as the issuer created it. 'XRP' is the native coin and is not accepted here: use contractAddress 'native'. Required for XRPL trust line tokens."),
   tiers: z.array(TierSchema).min(1).max(4).describe("1-4 discount tiers"),
 });
 
@@ -526,7 +526,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
             attester: EvmAddress.optional().describe("Expected attester address (optional, for eas_attestation)"),
             indexer: EvmAddress.optional().describe("EAS indexer contract address (optional, for eas_attestation)"),
             template: z.enum(["coinbase_verified_account", "coinbase_verified_country", "coinbase_one", "gitcoin_passport_score", "gitcoin_passport_active"]).optional().describe("Compliance template name. Use instead of raw schemaId/attester/indexer for eas_attestation. Gitcoin Passport templates check Sybil resistance on Optimism."),
-            currency: z.string().max(40).regex(/^[A-Za-z0-9]+$/).optional().describe("XRPL trust line currency code (e.g. 'RLUSD', 'USDC'). Required for XRPL trust line tokens, ignored for other chains."),
+            currency: z.string().min(1).max(40).regex(/^[\x20-\x7E]+$/).optional().describe("XRPL trust line currency code (e.g. 'RLUSD'). Case-sensitive: enter it exactly as the issuer created it. Required for XRPL trust line tokens, ignored for other chains."),
             assetCode: z.string().regex(/^[A-Za-z0-9]{1,12}$/).optional().describe("Stellar trustline asset code (e.g. 'USDC', 'BENJI'). Required for Stellar non-native (trustline) tokens. Use contractAddress 'native' for XLM. Ignored for other chains. Flows into conditionHash so different assets on the same issuer produce different hashes."),
             taxon: z.number().int().optional().describe("XRPL NFToken taxon filter (optional, for nft_ownership on XRPL only). Filters NFTs by issuer + taxon."),
             selector: z.string().max(100).regex(/^[A-Za-z_][A-Za-z0-9_]*\(address\)$/).optional().describe("Required for evm_view_call. Canonical signature of a view function returning bool, in the form 'functionName(address)' (e.g. 'hasAccess(address)'). Single-address-argument view functions only; the 4-byte selector is derived from this signature."),
