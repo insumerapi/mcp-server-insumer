@@ -81,8 +81,8 @@ Generate an ECDSA-signed wallet trust fact profile. 145 base checks across 27 ch
 #### `insumer_batch_wallet_trust(wallets, proof?)`
 Batch trust profiles for up to 10 wallets (each accepts `wallet`, `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, `suiWallet`). Shared block fetches, 5-8x faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle).
 
-#### `insumer_verify(merchantId, wallet?, solanaWallet?, xrplWallet?, tronWallet?, stellarWallet?, suiWallet?)`
-Create a signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. Returns tier and discount percentage. 1 merchant credit.
+#### `insumer_verify(merchantId, wallet?, solanaWallet?, xrplWallet?)`
+Create a signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. Returns tier and discount percentage. Takes an EVM, Solana or XRPL wallet. 1 merchant credit.
 
 ### Discovery (free)
 
@@ -95,8 +95,8 @@ Get full public merchant profile including token tiers, NFT collections, discoun
 #### `insumer_list_tokens(chain?, symbol?, type?)`
 List all registered tokens and NFT collections in the registry. Filter by chain ID, symbol, or asset type (token/nft).
 
-#### `insumer_check_discount(merchant, wallet?, solanaWallet?, xrplWallet?, tronWallet?, stellarWallet?, suiWallet?)`
-Calculate discount for a wallet at a merchant. Returns tier and discount percentage per token. Free, no credits consumed.
+#### `insumer_check_discount(merchant, wallet?, solanaWallet?, xrplWallet?)`
+Calculate discount for a wallet at a merchant. Returns tier and discount percentage per token. Takes an EVM, Solana or XRPL wallet. Free, no credits consumed. An `rpc_failure` answer means a read did not complete; it is never "not eligible".
 
 ### Credits & Keys
 
@@ -121,13 +121,13 @@ Create a new merchant. Receives 100 free verification credits. Max 10 merchants 
 Get full private merchant details: credits, token configs, NFT collections, directory status, verification status, USDC settings.
 
 #### `insumer_configure_tokens(id, ownToken?, partnerTokens?)`
-Configure merchant token discount tiers. Set own token and/or partner tokens. Max 8 tokens total.
+Configure merchant token discount tiers. Set own token and/or partner tokens. Max 8 tokens total. Each token can carry a display `name` and `logo`; the own token takes `enabled` (true or false). Tier discounts are whole numbers from 1 to 50.
 
 #### `insumer_configure_nfts(id, nftCollections)`
-Configure NFT collections that grant discounts. Max 4 collections.
+Configure the NFT collections a merchant recognizes. Max 4 collections. Each grants a discount (a whole number from 1 to 50) or, with `benefitType: "recognition"`, recognition only. `enabled: false` keeps a collection switched off; carry it through when re-saving. An XRPL `taxon` is an integer from 0 to 4294967295.
 
 #### `insumer_configure_settings(id, discountMode?, discountCap?, usdcPayment?)`
-Update merchant settings: discount stacking mode (highest/stack/capped), cap, and USDC payment configuration.
+Update merchant settings: discount stacking mode (highest/stack/capped), cap (a whole number from 1 to 100), and USDC payment configuration.
 
 #### `insumer_publish_directory(id)`
 Publish (or refresh) the merchant's listing in the public directory.
@@ -145,14 +145,18 @@ Complete domain verification after placing the token. Verified merchants get a t
 
 ### Commerce Protocol Integration
 
-#### `insumer_acp_discount(merchantId, wallet?, solanaWallet?, xrplWallet?, tronWallet?, stellarWallet?, suiWallet?, items?)`
+#### `insumer_acp_discount(merchantId, wallet?, solanaWallet?, xrplWallet?, items?)`
 Check discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations. 1 merchant credit.
 
-#### `insumer_ucp_discount(merchantId, wallet?, solanaWallet?, xrplWallet?, tronWallet?, stellarWallet?, suiWallet?, items?)`
+#### `insumer_ucp_discount(merchantId, wallet?, solanaWallet?, xrplWallet?, items?)`
 Check discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array. 1 merchant credit.
 
 #### `insumer_validate_code(code)`
 Validate an INSR-XXXXX discount code. Returns validity, discount percent, and expiry. Free, no auth required.
+
+## Handling `rpc_failure`
+
+`insumer_attest`, `insumer_wallet_trust`, `insumer_verify`, `insumer_acp_discount`, `insumer_ucp_discount` and `insumer_check_discount` can answer `ok: false` with error code `rpc_failure` (HTTP 503). It means a read did not complete and nothing was signed. Retry after a short delay. It is never a "no": do not report it as a failed condition or as "not eligible". `insumer_batch_wallet_trust` answers normally and carries an `error` entry for any wallet whose reads did not complete.
 
 ## Supported Chains (37)
 

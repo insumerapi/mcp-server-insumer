@@ -12,7 +12,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-export const VERSION = "1.16.1";
+export const VERSION = "1.16.2";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -155,6 +155,13 @@ const DiscountCode = z.string().regex(/^INSR-[A-Z0-9]{5}$/, "Discount code in IN
 // Token/NFT reference: an EVM, Solana, XRPL or Stellar address, a Sui coin type
 // (address::module::Name), or 'native'.
 const ContractRef = z.string().min(1).max(200).regex(/^[A-Za-z0-9:_]+$/, "Contract address, coin type, or 'native'");
+// A condition's contract reference also takes a Sui coin type with type parameters,
+// e.g. 0x2::coin::Coin<0x2::sui::SUI>: angle brackets, commas and one space after a comma.
+const SuiGenericCoinType = z
+  .string()
+  .max(600)
+  .regex(/^0x[0-9a-fA-F]{1,64}::[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*<[A-Za-z0-9:_<>, ]+>$/, "Sui coin type with type parameters");
+const ConditionContractRef = z.union([ContractRef, SuiGenericCoinType]);
 const DecimalString = z.string().max(80).regex(/^\d+(\.\d+)?$/, "Decimal string, e.g. \"100\" or \"0.5\"");
 const DecimalArg = z.union([DecimalString, z.number()]).transform((v) => String(v));
 const UintString = z.string().regex(/^\d{1,78}$/, "Unsigned integer as a decimal string");
@@ -216,7 +223,7 @@ const UsdcChainIdWithBitcoin = z
 const TierSchema = z.object({
   name: z.string().max(30).describe("Tier name, e.g. 'Gold', 'Silver'"),
   threshold: z.number().positive().describe("Minimum token balance for this tier"),
-  discount: z.number().int().min(1).max(50).describe("Discount percentage (1-50)"),
+  discount: z.number().int().min(1).max(50).describe("Discount percentage: a whole number from 1 to 50, no decimals"),
 });
 
 const TokenConfigSchema = z.object({
@@ -225,25 +232,32 @@ const TokenConfigSchema = z.object({
   contractAddress: ContractRef.describe("Token contract address. For XRPL: use r-address issuer for trust line tokens, or 'native' for XRP."),
   decimals: z.number().int().min(0).max(18).describe("Token decimals (0-18). Required: the merchant registry stores it with each token and rejects a config without it. 6 for USDC, 18 for most ERC-20s."),
   currency: z.string().min(1).max(40).regex(/^[\x20-\x7E]+$/).optional().describe("XRPL trust line currency code: a 3-character code (e.g. 'USD'), a token name of 1 to 20 printable ASCII characters (e.g. 'RLUSD'), or a 40-character hex code. Case-sensitive: send it exactly as the issuer created it. 'XRP' is the native coin and is not accepted here: use contractAddress 'native'. Required for XRPL trust line tokens."),
+  name: z.string().max(100).optional().describe("Display name of the token, shown in the public directory (max 100 characters). Optional."),
+  logo: z.string().max(500).optional().describe("Logo URL for the token, shown in the public directory (max 500 characters). Optional."),
   tiers: z.array(TierSchema).min(1).max(4).describe("1-4 discount tiers"),
+});
+
+// The merchant's own token also carries an on/off switch.
+const OwnTokenConfigSchema = TokenConfigSchema.extend({
+  enabled: z.boolean().optional().describe("true or false, never a string. false switches the own token off; leave it out or send true to keep it on."),
 });
 
 const NftCollectionSchema = z.object({
   name: z.string().max(50).describe("NFT collection name"),
   contractAddress: ContractRef.describe("NFT contract address. For XRPL: use r-address of the NFT issuer."),
-  taxon: z.number().int().optional().describe("XRPL NFT taxon for filtering by collection. Optional, XRPL only."),
+  taxon: z.number().int().min(0).max(4294967295).optional().describe("XRPL NFT taxon for filtering by collection: an integer from 0 to 4294967295. Optional, XRPL only."),
   chainId: OnboardingChainId,
-  discount: z.number().int().min(1).max(50).describe("Discount percentage (1-50)"),
+  benefitType: z.enum(["discount", "recognition"]).optional().describe("'discount' (the default) grants the discount below. 'recognition' means holders are recognized and no discount is granted."),
+  discount: z.number().int().min(1).max(50).optional().describe("Discount percentage: a whole number from 1 to 50, no decimals. Required unless benefitType is 'recognition'."),
+  enabled: z.boolean().optional().describe("true or false. false keeps the collection in the configuration but switched off. Leave it out for an enabled collection. When re-saving an existing configuration, carry each collection's enabled value through, or a collection that was switched off is switched back on."),
 });
 
-// Optional wallet fields shared by the verification and discount tools.
+// Optional wallet fields shared by the verification and discount tools. The
+// merchant endpoints read these three and no others.
 const WalletFields = {
   wallet: EvmAddress.optional().describe("EVM wallet address (0x...)"),
   solanaWallet: SolanaAddress.optional().describe("Solana wallet address (base58)"),
   xrplWallet: XrplAddress.optional().describe("XRPL wallet address (r-address)"),
-  tronWallet: TronAddress.optional().describe("Tron wallet address (T-prefixed)"),
-  stellarWallet: StellarAddress.optional().describe("Stellar wallet address (G-prefixed)"),
-  suiWallet: SuiAddress.optional().describe("Sui wallet address (0x + 64 hex)"),
 };
 
 const COUNTS_NOTE = "Current chain and check counts: https://insumermodel.com/llms.txt";
@@ -498,7 +512,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_attest",
-    `Verify 1-10 on-chain conditions for a wallet and return a signed yes or no for each, never the balance. Condition types: token_balance, nft_ownership, eas_attestation (raw schemaId or a compliance template such as Coinbase Verifications or Gitcoin Passport), farcaster_id (IdRegistry on Optimism), evm_view_call (a single-address-argument view function returning bool), ratio_to_amount (balance >= multiple * amount), ratio_to_supply (balance / totalSupply >= minFraction, ERC-20 only), erc8004_agent (registered ERC-8004 agent on Base), and erc7710_delegation (a signed MetaMask-framework delegation from principal to agent is currently valid on Base; spend, target and call limits are reported as declaredLimits, not simulated). Chains: EVM chains plus Solana, XRPL, Bitcoin, Tron, Stellar and Sui; Bitcoin, Tron, Stellar and Sui support token_balance only. Responses are ECDSA-signed with a kid identifying the key and carry a post-quantum companion signature; each result includes evaluatedCondition, a SHA-256 conditionHash, and the block (EVM), ledger (XRPL, Stellar) or checkpoint (Sui) it was read at. proof: 'merkle' adds EIP-1186 storage proofs on supported EVM chains. Attestations with a delegation condition expire in 5 minutes instead of 30; a failed delegation result carries failReason. Costs 1 credit (2 with proof). ${COUNTS_NOTE}`,
+    `Verify 1-10 on-chain conditions for a wallet and return a signed yes or no for each, never the balance. Condition types: token_balance, nft_ownership, eas_attestation (raw schemaId or a compliance template such as Coinbase Verifications or Gitcoin Passport), farcaster_id (IdRegistry on Optimism), evm_view_call (a single-address-argument view function returning bool), ratio_to_amount (balance >= multiple * amount), ratio_to_supply (balance / totalSupply >= minFraction, ERC-20 only), erc8004_agent (registered ERC-8004 agent on Base), and erc7710_delegation (a signed MetaMask-framework delegation from principal to agent is currently valid on Base; spend, target and call limits are reported as declaredLimits, not simulated). Chains: EVM chains plus Solana, XRPL, Bitcoin, Tron, Stellar and Sui; Bitcoin, Tron, Stellar and Sui support token_balance only. Responses are ECDSA-signed with a kid identifying the key and carry a post-quantum companion signature; each result includes evaluatedCondition, a SHA-256 conditionHash, and the block (EVM), ledger (XRPL, Stellar) or checkpoint (Sui) it was read at. proof: 'merkle' adds EIP-1186 storage proofs on supported EVM chains. Attestations with a delegation condition expire in 5 minutes instead of 30; a failed delegation result carries failReason. Costs 1 credit (2 with proof). An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. ${COUNTS_NOTE}`,
     {
       wallet: EvmAddress.optional().describe("EVM wallet address (0x...)"),
       solanaWallet: SolanaAddress.optional().describe("Solana wallet address (base58)"),
@@ -514,7 +528,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
         .array(
           z.object({
             type: z.enum(["token_balance", "nft_ownership", "eas_attestation", "farcaster_id", "evm_view_call", "ratio_to_amount", "ratio_to_supply", "erc8004_agent", "erc7710_delegation"]).describe("Condition type: token_balance, nft_ownership (EVM, Solana and XRPL), eas_attestation, farcaster_id (Farcaster IdRegistry on Optimism), evm_view_call (single-address-argument view function returning bool; RPC EVM chains only), ratio_to_amount (balance >= multiple * amount; RPC EVM chains only), ratio_to_supply (balance / totalSupply >= minFraction; RPC EVM chains, ERC-20 only), erc8004_agent (registered ERC-8004 agent on Base; agentId required), or erc7710_delegation (signed MetaMask-framework delegation validity on Base; delegationManager, expectedDelegator, and delegation required; max 3 per request)"),
-            contractAddress: ContractRef.optional().describe("Token or NFT contract address (required for token_balance, nft_ownership, ratio_to_amount, and ratio_to_supply; ratio_to_supply requires an ERC-20 contract, no native). 'native' means the chain's native coin and is for token_balance and ratio_to_amount only. nft_ownership needs the NFT contract address (0x + 40 hex on EVM); 'native' with nft_ownership is rejected with a 400, so use token_balance for the native coin. On Sui, pass a coin type address::module::Name: native SUI is '0x2::sui::SUI', and 'native' is not accepted there."),
+            contractAddress: ConditionContractRef.optional().describe("Token or NFT contract address (required for token_balance, nft_ownership, ratio_to_amount, and ratio_to_supply; ratio_to_supply requires an ERC-20 contract, no native). 'native' means the chain's native coin and is for token_balance and ratio_to_amount only. nft_ownership needs the NFT contract address (0x + 40 hex on EVM); 'native' with nft_ownership is rejected with a 400, so use token_balance for the native coin. On Sui, pass a coin type address::module::Name: native SUI is '0x2::sui::SUI', and 'native' is not accepted there. A coin type may carry type parameters in angle brackets."),
             chainId: ChainId.optional(),
             threshold: DecimalArg.optional().describe("Minimum balance for token_balance, as a decimal string in token/display units (e.g. \"100\", not base units). Numbers are accepted and coerced to a string. Must be > 0 when proof is merkle."),
             multiple: DecimalArg.optional().describe("For ratio_to_amount: collateralization multiple as a decimal string (e.g. \"10\" for 'hold >= 10x the amount'). Met iff balance >= multiple * amount. Numbers are accepted and coerced. Must be > 0."),
@@ -528,7 +542,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
             template: z.enum(["coinbase_verified_account", "coinbase_verified_country", "coinbase_one", "gitcoin_passport_score", "gitcoin_passport_active"]).optional().describe("Compliance template name. Use instead of raw schemaId/attester/indexer for eas_attestation. Gitcoin Passport templates check Sybil resistance on Optimism."),
             currency: z.string().min(1).max(40).regex(/^[\x20-\x7E]+$/).optional().describe("XRPL trust line currency code (e.g. 'RLUSD'). Case-sensitive: enter it exactly as the issuer created it. Required for XRPL trust line tokens, ignored for other chains."),
             assetCode: z.string().regex(/^[A-Za-z0-9]{1,12}$/).optional().describe("Stellar trustline asset code (e.g. 'USDC', 'BENJI'). Required for Stellar non-native (trustline) tokens. Use contractAddress 'native' for XLM. Ignored for other chains. Flows into conditionHash so different assets on the same issuer produce different hashes."),
-            taxon: z.number().int().optional().describe("XRPL NFToken taxon filter (optional, for nft_ownership on XRPL only). Filters NFTs by issuer + taxon."),
+            taxon: z.number().int().min(0).max(4294967295).optional().describe("XRPL NFToken taxon filter: an integer from 0 to 4294967295 (optional, for nft_ownership on XRPL only). Filters NFTs by issuer + taxon."),
             selector: z.string().max(100).regex(/^[A-Za-z_][A-Za-z0-9_]*\(address\)$/).optional().describe("Required for evm_view_call. Canonical signature of a view function returning bool, in the form 'functionName(address)' (e.g. 'hasAccess(address)'). Single-address-argument view functions only; the 4-byte selector is derived from this signature."),
             agentId: UintString.optional().describe("Required for erc8004_agent. The ERC-8004 agent ID as a uint256 decimal string — the caller must supply it (the deployed Identity Registry has no wallet-to-agentId reverse lookup). Met iff the attested wallet owns the agent NFT (ownerOf) or is the registry's signature-verified agentWallet binding. Registry 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 on Base; chainId 8453 only. Honest semantics: registration is permissionless minting — the signed statement implies no vetting, no reputation, no endorsement."),
             delegationManager: EvmAddress.optional().describe("Required for erc7710_delegation. DelegationManager contract the delegation was signed against — one of the recognized MetaMask Delegation Framework managers on Base (current default 0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3). chainId 8453 only."),
@@ -577,7 +591,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_wallet_trust",
-    `Generate a signed wallet trust fact profile for an EVM wallet: a curated set of presence checks organized into dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names). Optional Solana, XRPL, Bitcoin and Tron wallets add their own dimensions; optional Stellar and Sui wallets let rows inside existing dimensions evaluate. Rows on a chain whose wallet is not supplied stay in the signed profile with evaluated: false. Every check is held or not held, never a balance. The signed conditionSetVersion names the check list that was run; log it, never reject on it. Returns per-dimension pass/fail counts and an overall summary: no score, no opinion. Designed for AI agent-to-agent trust decisions. Costs 3 credits (6 with proof: 'merkle'). ${COUNTS_NOTE}`,
+    `Generate a signed wallet trust fact profile for an EVM wallet: a curated set of presence checks organized into dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names). Optional Solana, XRPL, Bitcoin and Tron wallets add their own dimensions; optional Stellar and Sui wallets let rows inside existing dimensions evaluate. Rows on a chain whose wallet is not supplied stay in the signed profile with evaluated: false. Every check is held or not held, never a balance. The signed conditionSetVersion names the check list that was run; log it, never reject on it. Returns per-dimension pass/fail counts and an overall summary: no score, no opinion. Designed for AI agent-to-agent trust decisions. Costs 3 credits (6 with proof: 'merkle'). An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. ${COUNTS_NOTE}`,
     {
       wallet: EvmAddress.describe("EVM wallet address (0x...) to profile"),
       solanaWallet: SolanaAddress.optional().describe("Solana wallet address (base58). If provided, adds the Solana dimension and lets the institutional rows on Solana evaluate."),
@@ -599,7 +613,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_batch_wallet_trust",
-    "Generate wallet trust fact profiles for up to 10 wallets in a single request. Shared block fetches make this faster than sequential calls. Each wallet gets an independently signed profile with its own TRST-XXXXX ID. Supports partial success: failed wallets get error entries while successful ones return full profiles. Costs 3 credits per successful wallet (6 with proof: 'merkle'); credits are charged only for successful profiles.",
+    "Generate wallet trust fact profiles for up to 10 wallets in a single request. Shared block fetches make this faster than sequential calls. Each wallet gets an independently signed profile with its own TRST-XXXXX ID. Supports partial success: failed wallets get error entries while successful ones return full profiles. Costs 3 credits per successful wallet (6 with proof: 'merkle'); credits are charged only for successful profiles. A wallet whose reads did not complete gets an error entry and no signed profile: retry that wallet, and never treat the entry as a no.",
     {
       wallets: z
         .array(
@@ -634,7 +648,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_verify",
-    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created.",
+    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -722,7 +736,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_check_discount",
-    "Calculate discount for a wallet at a merchant. Checks on-chain balances and returns tier and discount percentage per token, never raw balance amounts. Free: does not consume credits.",
+    "Calculate discount for a wallet at a merchant. Checks on-chain balances and returns tier and discount percentage per token, never raw balance amounts. Free: does not consume credits. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete: retry, and never treat it as not eligible.",
     {
       merchant: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -734,9 +748,6 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       if (args.wallet) params.set("wallet", args.wallet);
       if (args.solanaWallet) params.set("solanaWallet", args.solanaWallet);
       if (args.xrplWallet) params.set("xrplWallet", args.xrplWallet);
-      if (args.tronWallet) params.set("tronWallet", args.tronWallet);
-      if (args.stellarWallet) params.set("stellarWallet", args.stellarWallet);
-      if (args.suiWallet) params.set("suiWallet", args.suiWallet);
       const url = `${API_BASE}/discount/check?${params.toString()}`;
       const res = await fetch(url, {
         method: "GET",
@@ -852,10 +863,10 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_configure_tokens",
-    "Configure merchant token discount tiers. Set own token and/or partner tokens. Replaces the existing token configuration. Max 8 tokens total. Owner only.",
+    "Configure merchant token discount tiers. Set own token and/or partner tokens. Replaces the existing token configuration. Max 8 tokens total. Tier discounts are whole numbers from 1 to 50; a value with decimals is refused. Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
-      ownToken: TokenConfigSchema.nullable()
+      ownToken: OwnTokenConfigSchema.nullable()
         .optional()
         .describe("Merchant's own token configuration, or null to remove"),
       partnerTokens: z
@@ -878,7 +889,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_configure_nfts",
-    "Configure NFT collections that grant discounts at the merchant. Replaces the existing NFT configuration. Max 4 collections. Owner only.",
+    "Configure the NFT collections a merchant recognizes, each granting a discount or recognition only. Replaces the existing NFT configuration. Max 4 collections. Discounts are whole numbers from 1 to 50; a value with decimals is refused. Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
       nftCollections: z
@@ -901,7 +912,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_configure_settings",
-    "Update merchant settings: discount stacking mode, cap, and stablecoin payment configuration. All fields optional; supplied fields replace their current values. Owner only.",
+    "Update merchant settings: discount stacking mode, cap, and stablecoin payment configuration. All fields optional; supplied fields replace their current values. discountCap is a whole number from 1 to 100. Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
       discountMode: z
@@ -914,7 +925,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
         .min(1)
         .max(100)
         .optional()
-        .describe("Maximum total discount percentage (1-100)"),
+        .describe("Maximum total discount percentage: a whole number from 1 to 100, no decimals"),
       usdcPayment: z
         .object({
           enabled: z.boolean().describe("Enable or disable USDC payments"),
@@ -1033,7 +1044,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_acp_discount",
-    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit.",
+    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -1048,7 +1059,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_ucp_discount",
-    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit.",
+    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,

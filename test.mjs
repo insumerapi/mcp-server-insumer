@@ -137,6 +137,25 @@ assert(await rejects(client, "insumer_request_domain_verification", { id: "acme"
 assert(await rejects(client, "insumer_buy_key", { txHash: "abc", chainId: 8453, appName: "x" }), "buy_key rejects a malformed transaction hash");
 assert(await rejects(client, "insumer_confirm_payment", { code: "INSR-1", txHash: "0x" + "a".repeat(64), chainId: 8453, amount: "5" }), "confirm_payment rejects a malformed code");
 
+assert(await rejects(client, "insumer_attest", { xrplWallet: "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH", conditions: [{ type: "nft_ownership", contractAddress: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De", chainId: "xrpl", taxon: 4294967296 }] }), "attest rejects a taxon above 4294967295");
+assert(await rejects(client, "insumer_attest", { xrplWallet: "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH", conditions: [{ type: "nft_ownership", contractAddress: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De", chainId: "xrpl", taxon: -1 }] }), "attest rejects a negative taxon");
+assert(await rejects(client, "insumer_configure_nfts", { id: "acme", nftCollections: [{ name: "A", contractAddress: "0x" + "a".repeat(40), chainId: 1, discount: 12.5 }] }), "configure_nfts rejects a discount with decimals");
+assert(await rejects(client, "insumer_configure_nfts", { id: "acme", nftCollections: [{ name: "A", contractAddress: "0x" + "a".repeat(40), chainId: 1, discount: 10, enabled: "false" }] }), "configure_nfts rejects enabled as a string");
+assert(await rejects(client, "insumer_configure_settings", { id: "acme", discountCap: 12.5 }), "configure_settings rejects a cap with decimals");
+{
+  const props = (name) => Object.keys(tools.find((t) => t.name === name).inputSchema.properties);
+  const merchantTools = ["insumer_verify", "insumer_check_discount", "insumer_acp_discount", "insumer_ucp_discount"];
+  assert(merchantTools.every((n) => ["wallet", "solanaWallet", "xrplWallet"].every((w) => props(n).includes(w)) && !props(n).some((k) => /^(tron|stellar|sui|bitcoin)Wallet$/.test(k))), "the merchant tools offer the EVM, Solana and XRPL wallets and no others");
+  const desc = (name) => tools.find((t) => t.name === name).description;
+  assert(["insumer_attest", "insumer_wallet_trust", ...merchantTools].every((n) => /rpc_failure/.test(desc(n))), "every tool that can answer rpc_failure says what it means");
+  const nft = tools.find((t) => t.name === "insumer_configure_nfts").inputSchema.properties.nftCollections.items.properties;
+  assert(nft.enabled?.type === "boolean" && Array.isArray(nft.benefitType?.enum), "configure_nfts carries enabled and benefitType");
+  const own = JSON.stringify(tools.find((t) => t.name === "insumer_configure_tokens").inputSchema.properties.ownToken);
+  assert(/"name"/.test(own) && /"logo"/.test(own) && /"enabled"/.test(own), "configure_tokens carries name, logo and the own token's enabled");
+  const suiTyped = JSON.stringify(attest.inputSchema.properties.conditions.items.properties.contractAddress);
+  assert(/600/.test(suiTyped), "attest accepts a Sui coin type with type parameters");
+}
+
 console.log("\n4. Free live calls");
 const jwks = await client.callTool({ name: "insumer_jwks", arguments: {} });
 assert(!jwks.isError && /insumer-attest-v1/.test(text(jwks)), "insumer_jwks returns the live key set");

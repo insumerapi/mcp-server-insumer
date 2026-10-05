@@ -245,8 +245,8 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 |------|-------------|
 | `insumer_create_merchant` | Create new merchant. Receives 100 free credits. |
 | `insumer_merchant_status` | Get full private merchant details. |
-| `insumer_configure_tokens` | Set token discount tiers. |
-| `insumer_configure_nfts` | Set NFT collection discounts. |
+| `insumer_configure_tokens` | Set token discount tiers. Tier discounts are whole numbers from 1 to 50. Tokens can carry a display `name` and `logo`; the own token takes `enabled`. |
+| `insumer_configure_nfts` | Set NFT collections: a whole-number discount from 1 to 50, or `benefitType: "recognition"` for recognition only. `enabled: false` keeps a collection switched off. |
 | `insumer_configure_settings` | Set discount mode, cap, USDC payments. |
 | `insumer_publish_directory` | Publish merchant to public directory. |
 | `insumer_buy_merchant_credits` | Buy merchant verification credits with USDC, USDT, BTC, or USDT-TRC20. Volume discounts: $0.04–$0.02/call. Owner only. Non-refundable. First purchase registers sender wallet; subsequent purchases must match or include `updateWallet: true`. |

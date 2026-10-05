@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.16.2 (2026-10-05)
+
+- **Tool descriptions say what `rpc_failure` means.** `insumer_attest`, `insumer_wallet_trust`, `insumer_verify`, `insumer_check_discount`, `insumer_acp_discount` and `insumer_ucp_discount` each state that an `rpc_failure` error (503) means a read did not complete, nothing was signed, and the call should be retried: it is never a "no". `insumer_batch_wallet_trust` states the same for its per-wallet error entries. `SKILL.md` carries the same guidance.
+- **The merchant tools offer only the wallets the API reads.** `insumer_verify`, `insumer_check_discount`, `insumer_acp_discount` and `insumer_ucp_discount` take `wallet`, `solanaWallet` and `xrplWallet`. The Tron, Stellar and Sui wallet fields are removed from these four tools; the API never read them there. `insumer_attest` and the trust tools are unchanged.
+- **`insumer_configure_nfts` carries `enabled` and `benefitType`.** A collection that was switched off stays off when its configuration is saved again, and a collection can be recognition only (`benefitType: "recognition"`, no discount).
+- **`insumer_configure_tokens` carries `name` and `logo`** for each token, and `enabled` (true or false) for the own token.
+- **Discounts are whole numbers.** The descriptions state that tier and NFT discounts are whole numbers from 1 to 50 and `discountCap` is a whole number from 1 to 100. The schemas already required integers.
+- **XRPL `taxon` is an integer from 0 to 4294967295** on `insumer_attest` and `insumer_configure_nfts`.
+- `insumer_attest` accepts a Sui coin type with type parameters, such as `0x2::coin::Coin<0x2::sui::SUI>`, up to 600 characters.
+
 ## 1.16.1 (2026-10-04)
 
 - **XRPL currency codes are accepted in every form the API accepts.** `currency` on `insumer_attest` and on the merchant token tool takes a 3-character code, a token name of 1 to 20 printable ASCII characters, or a 40-character hex code, including codes that carry symbols. The description states that codes are case-sensitive and are sent exactly as issued.
