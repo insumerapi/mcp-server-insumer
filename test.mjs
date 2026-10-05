@@ -143,6 +143,7 @@ assert(await rejects(client, "insumer_configure_nfts", { id: "acme", nftCollecti
 assert(await rejects(client, "insumer_configure_nfts", { id: "acme", nftCollections: [{ name: "A", contractAddress: "0x" + "a".repeat(40), chainId: 1, discount: 10, enabled: "false" }] }), "configure_nfts rejects enabled as a string");
 assert(await rejects(client, "insumer_configure_settings", { id: "acme", discountCap: 12.5 }), "configure_settings rejects a cap with decimals");
 assert(await rejects(client, "insumer_configure_settings", { id: "acme", maxUnprovenDiscount: 101 }), "configure_settings rejects an unproven discount above 100");
+assert(await rejects(client, "insumer_configure_tokens", { id: "acme", partnerTokens: [{ symbol: "A", chainId: 1, contractAddress: "0x" + "a".repeat(40), decimals: 18, tiers: [{ name: "T", threshold: 1, discount: 5 }], alsoOn: Array.from({ length: 10 }, (_, i) => ({ chainId: 10 + i, contractAddress: "0x" + "b".repeat(40) })) }] }), "configure_tokens rejects more than 9 alsoOn networks");
 assert(await rejects(client, "insumer_verify", { merchantId: "acme", wallet: "0x" + "a".repeat(40), walletProof: { message: "m", signature: "not-hex" } }), "verify rejects a walletProof signature that is not hex");
 {
   const props = (name) => Object.keys(tools.find((t) => t.name === name).inputSchema.properties);
@@ -158,6 +159,9 @@ assert(await rejects(client, "insumer_verify", { merchantId: "acme", wallet: "0x
   assert(issuing.every((n) => props(n).includes("walletProof")) && !props("insumer_check_discount").includes("walletProof"), "the code-issuing tools take walletProof; the free check does not");
   const proofSchema = JSON.stringify(tools.find((t) => t.name === "insumer_verify").inputSchema.properties.walletProof);
   assert(/api\.insumermodel\.com\/v1\/merchants\//.test(proofSchema) && /"message"/.test(proofSchema) && /"signature"/.test(proofSchema), "walletProof states the message to sign and takes message and signature");
+  const tokenProps = JSON.stringify(tools.find((t) => t.name === "insumer_configure_tokens").inputSchema.properties.partnerTokens);
+  const ownProps = JSON.stringify(tools.find((t) => t.name === "insumer_configure_tokens").inputSchema.properties.ownToken);
+  assert(/"alsoOn"/.test(tokenProps) && /"alsoOn"/.test(ownProps), "configure_tokens carries alsoOn on partner tokens and the own token");
   const settings = tools.find((t) => t.name === "insumer_configure_settings").inputSchema.properties;
   assert(settings.maxUnprovenDiscount && settings.maxDiscountsPerWalletPerDay, "configure_settings carries the terms for wallets without proof");
   const suiTyped = JSON.stringify(attest.inputSchema.properties.conditions.items.properties.contractAddress);

@@ -7,7 +7,7 @@
     "source": "github"
   },
   "websiteUrl": "https://insumermodel.com/developers/",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "remotes": [
     {
       "type": "streamable-http",
@@ -18,7 +18,7 @@
     {
       "registryType": "npm",
       "identifier": "mcp-server-insumer",
-      "version": "1.17.0",
+      "version": "1.17.1",
       "transport": {
         "type": "stdio"
       },

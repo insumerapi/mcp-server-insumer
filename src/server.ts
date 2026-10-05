@@ -12,7 +12,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-export const VERSION = "1.17.0";
+export const VERSION = "1.17.1";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -235,6 +235,21 @@ const TokenConfigSchema = z.object({
   name: z.string().max(100).optional().describe("Display name of the token, shown in the public directory (max 100 characters). Optional."),
   logo: z.string().max(500).optional().describe("Logo URL for the token, shown in the public directory (max 500 characters). Optional."),
   tiers: z.array(TierSchema).min(1).max(4).describe("1-4 discount tiers"),
+  alsoOn: z
+    .array(
+      z.object({
+        chainId: z.union([z.number().int().positive(), z.literal("solana")]).describe("EVM chain ID, or 'solana'"),
+        contractAddress: z.string().min(1).max(64).describe("The same token's contract (EVM) or mint (Solana) on that network; not 'native'"),
+      })
+    )
+    .max(9)
+    .optional()
+    .describe(
+      "Optional: the same token on other networks, up to 9 (EVM chains and Solana; not the XRP Ledger, not a native coin). " +
+      "The store decides which deployments count as the same token. Each network's balance is read in that token's own decimals there, " +
+      "the balances are added exactly, and the tier is awarded once. A read that fails on any listed network refuses the whole check (rpc_failure), never a partial total. " +
+      "When re-saving, carry each token's alsoOn through, or its other networks are removed."
+    ),
 });
 
 // The merchant's own token also carries an on/off switch.

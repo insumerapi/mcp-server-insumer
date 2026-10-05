@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.1 (2026-10-05)
+
+- **`insumer_configure_tokens` carries `alsoOn`** on partner tokens and the own token: the same token on up to 9 other networks (EVM chains and Solana; not the XRP Ledger, not a native coin). The store decides which deployments count as the same token. Each network's balance is read in that token's own decimals there, the balances are added exactly, and the tier is awarded once. A read that fails on any listed network refuses the whole check, never a partial total. When re-saving, carry each token's `alsoOn` through.
+
 ## 1.17.0 (2026-10-05)
 
 - **Prove the wallet for a discount.** `insumer_verify`, `insumer_acp_discount` and `insumer_ucp_discount` take an optional `walletProof` (`{ message, signature }`): an EIP-4361 message signed by the EVM wallet, with URI `https://api.insumermodel.com/v1/merchants/{merchantId}`. The field's description carries the exact message to sign. A proven wallet gets the store's full discount with no daily limit, and the response says `walletProven: true`. Without a proof, the store's terms for unproven wallets apply, and `discountIfProven` shows what a proof would get. A proof that fails returns 401 and uses no credit. EVM wallets only; smart-contract wallets are not accepted yet.
