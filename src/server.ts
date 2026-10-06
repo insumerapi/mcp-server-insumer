@@ -12,7 +12,7 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 
-export const VERSION = "1.17.1";
+export const VERSION = "1.18.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -54,7 +54,7 @@ export interface InsumerServerOptions {
  * either needs no key or spends only the shared key's credits on a read of
  * public chain state. Left out: key and credit management (there is no caller
  * to own them), merchant management (owner-only on the key), discount creation
- * (spends merchants' credits), and the credit balance (the shared key's own).
+ * (charges the store owner's key), and the credit balance (the shared key's own).
  */
 export const HOSTED_TOOLS = [
   "insumer_jwks",
@@ -471,73 +471,6 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
   };
 
   // ============================================================
-  // KEY DISCOVERY
-  // ============================================================
-
-  tool(
-    "insumer_jwks",
-    "Get InsumerAPI's public signing keys as a JWKS (JSON Web Key Set): an ECDSA P-256 key under its kids, followed by the ML-DSA-65 post-quantum key as RFC 9964 AKP entries. Signatures on attestation and trust responses verify against these keys. Match an entry by the kid (or pqKid) on the response, never by position; an unknown kid is unverifiable, not refuted. No authentication required.",
-    {},
-    { title: "Get public signing keys", ...READ_ONLY },
-    async () => {
-      const res = await fetch(`${API_BASE}/jwks`);
-      const data = await res.json();
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-      };
-    }
-  );
-
-  // ============================================================
-  // SETUP — Generate a free API key (no auth required)
-  // ============================================================
-
-  tool(
-    "insumer_setup",
-    "Generate a free-tier InsumerAPI key (insr_live_...). No credit card required. The user adds the key to their MCP config as INSUMER_API_KEY and restarts. One free key per email, with a per-IP daily limit. Free-tier allowance: https://insumermodel.com/pricing/",
-    {
-      email: z.string().email().max(254).describe("Email address for the API key"),
-      appName: z.string().max(100).optional().describe("Name of your app or project (default: 'MCP Agent')"),
-    },
-    { title: "Create a free API key", ...CREATES },
-    async (args) => {
-      const res = await fetch(KEYGEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: args.email,
-          appName: args.appName || "MCP Agent",
-          tier: "free",
-        }),
-      });
-      const result = await res.json() as Record<string, unknown>;
-      if (result.success && result.key) {
-        return {
-          content: [{
-            type: "text" as const,
-            text: [
-              `API key generated successfully!`,
-              ``,
-              `Key: ${result.key}`,
-              `Tier: free`,
-              ``,
-              `To activate, add this to your MCP config:`,
-              ``,
-              `  "env": { "INSUMER_API_KEY": "${result.key}" }`,
-              ``,
-              `Then restart your MCP client.`,
-            ].join("\n"),
-          }],
-        };
-      }
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-        isError: true,
-      };
-    }
-  );
-
-  // ============================================================
   // ON-CHAIN VERIFICATION
   // ============================================================
 
@@ -677,9 +610,76 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
     }
   );
 
+  // ============================================================
+  // KEY DISCOVERY
+  // ============================================================
+
+  tool(
+    "insumer_jwks",
+    "Get InsumerAPI's public signing keys as a JWKS (JSON Web Key Set): an ECDSA P-256 key under its kids, followed by the ML-DSA-65 post-quantum key as RFC 9964 AKP entries. Signatures on attestation and trust responses verify against these keys. Match an entry by the kid (or pqKid) on the response, never by position; an unknown kid is unverifiable, not refuted. No authentication required.",
+    {},
+    { title: "Get public signing keys", ...READ_ONLY },
+    async () => {
+      const res = await fetch(`${API_BASE}/jwks`);
+      const data = await res.json();
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+      };
+    }
+  );
+
+  // ============================================================
+  // SETUP — Generate a free API key (no auth required)
+  // ============================================================
+
+  tool(
+    "insumer_setup",
+    "Generate a free-tier InsumerAPI key (insr_live_...). No credit card required. The user adds the key to their MCP config as INSUMER_API_KEY and restarts. One free key per email, with a per-IP daily limit. Free-tier allowance: https://insumermodel.com/pricing/",
+    {
+      email: z.string().email().max(254).describe("Email address for the API key"),
+      appName: z.string().max(100).optional().describe("Name of your app or project (default: 'MCP Agent')"),
+    },
+    { title: "Create a free API key", ...CREATES },
+    async (args) => {
+      const res = await fetch(KEYGEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: args.email,
+          appName: args.appName || "MCP Agent",
+          tier: "free",
+        }),
+      });
+      const result = await res.json() as Record<string, unknown>;
+      if (result.success && result.key) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: [
+              `API key generated successfully!`,
+              ``,
+              `Key: ${result.key}`,
+              `Tier: free`,
+              ``,
+              `To activate, add this to your MCP config:`,
+              ``,
+              `  "env": { "INSUMER_API_KEY": "${result.key}" }`,
+              ``,
+              `Then restart your MCP client.`,
+            ].join("\n"),
+          }],
+        };
+      }
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+        isError: true,
+      };
+    }
+  );
+
   tool(
     "insumer_verify",
-    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. Consumes 1 merchant credit. If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
+    "Create a signed discount code (INSR-XXXXX, 30-minute expiry) for a wallet at a merchant. Returns tier and discount percentage, never raw balance amounts. A code that carries a discount costs one credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged, and stores on a licensed platform are covered by its license. Paid discount codes requested with a key other than the store's owner are subject to an hourly limit (429; the message says when to try again). If the merchant has Stripe Connect, a coupon is auto-created. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and no code was issued: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -859,7 +859,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_create_merchant",
-    "Create a new merchant, owned by the API key that creates it, with an initial allowance of free verification credits. Limited number of merchants per API key.",
+    "Create a new merchant, owned by the API key that creates it. The store has no credit balance of its own: that key pays for the store's codes, scans and taps, and credits in the response is that key's balance. Limited number of merchants per API key.",
     {
       companyName: z.string().max(100).describe("Company display name"),
       companyId: z
@@ -879,7 +879,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_merchant_status",
-    "Get full private merchant details: credits, token configs, NFT collections, directory status, verification status, payment settings. Owner only.",
+    "Get full private merchant details: credits (the owner key's balance), token configs, NFT collections, directory status, verification status, payment settings. Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
     },
@@ -1016,7 +1016,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_buy_merchant_credits",
-    `Add merchant verification credits against a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent. This tool does not move funds: it submits the transaction hash. USDC/USDT on EVM and Solana (auto-detected), USDT-TRC20 on Tron, BTC on Bitcoin (converted at market rate, 1 confirmation required). Non-refundable. Owner only. The first purchase registers the sender wallet to the API key; updateWallet: true replaces it. ${PRICING_NOTE}`,
+    `Kept for compatibility: a store has no credit balance of its own, so a payment submitted here adds regular credits to the API key that owns the store, at a flat rate (the regular credit purchase, with volume tiers, is the usual way to top up). Submits a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent. This tool does not move funds: it submits the transaction hash. USDC/USDT on EVM and Solana (auto-detected), USDT-TRC20 on Tron, BTC on Bitcoin (converted at market rate, 1 confirmation required). Non-refundable. Owner only. The first purchase registers the sender wallet to the API key; updateWallet: true replaces it. ${PRICING_NOTE}`,
     {
       id: MerchantId.describe("Merchant ID"),
       txHash: TxHash.describe("Transaction hash proving payment"),
@@ -1024,7 +1024,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       amount: z.number().min(5).optional().describe("Stablecoin amount sent (minimum 5). Not required for BTC."),
       updateWallet: z.boolean().optional().default(false).describe("Set true to replace the registered sender wallet"),
     },
-    { title: "Add merchant credits from a payment", ...OVERWRITES, idempotentHint: false },
+    { title: "Add credits to the store owner key from a payment", ...OVERWRITES, idempotentHint: false },
     async (args) => {
       const { id, ...body } = args;
       const result = await apiCall(
@@ -1061,7 +1061,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_verify_domain",
-    "Check a merchant's previously requested domain verification token. The server looks for it as a DNS TXT record, HTML meta tag, or uploaded file, and marks the domain verified when found. Rate limited to 5 attempts per hour. Owner only.",
+    "Check a merchant's previously requested domain verification token. The server looks for it as a DNS TXT record, HTML meta tag, or uploaded file, and marks the domain verified when found. Rate limited per merchant (429 says when to retry). Owner only.",
     {
       id: MerchantId.describe("Merchant ID"),
     },
@@ -1092,7 +1092,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_acp_discount",
-    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
+    "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations compatible with ACP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in ACP format. A code that carries a discount costs one credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged, and stores on a licensed platform are covered by its license. Paid discount codes requested with a key other than the store's owner are subject to an hourly limit (429; the message says when to try again). Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,
@@ -1108,7 +1108,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_ucp_discount",
-    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. Consumes 1 merchant credit. Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
+    "Check token-holder discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array compatible with UCP checkout flows. The on-chain check is the same one behind INSR discount codes, wrapped in UCP format. A code that carries a discount costs one credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged, and stores on a licensed platform are covered by its license. Paid discount codes requested with a key other than the store's owner are subject to an hourly limit (429; the message says when to try again). Takes an EVM, Solana or XRPL wallet. An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. Optional walletProof proves you control the EVM wallet: the response then says walletProven true, and the full discount its holdings earn applies, without the store's daily limit for unproven wallets. Without it the store's terms for unproven wallets apply, and discountIfProven shows what a proof would get.",
     {
       merchantId: MerchantId.describe("Merchant ID"),
       ...WalletFields,

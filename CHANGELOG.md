@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.18.0 (2026-10-06)
+
+- **One credit balance.** `insumer_verify`, `insumer_acp_discount` and `insumer_ucp_discount` describe the single credit balance on the API key: a code that carries a discount costs one credit from the API key that owns the store, and a 0% result is free. A caller using another key is not charged; a caller using the owner key pays from its own balance. Stores on a licensed platform are covered by its license. Paid discount codes requested with a key other than the store's owner are subject to an hourly limit (429; the message says when to try again). `insumer_buy_merchant_credits` is kept for compatibility: a payment submitted there adds regular credits to the store owner's key at a flat 25 credits per $1, as the README states. `insumer_create_merchant` describes a new store as starting with no balance of its own; its `credits` field is the owner key's balance.
+- **Core tools first.** `insumer_attest`, `insumer_compliance_templates`, `insumer_wallet_trust` and `insumer_batch_wallet_trust` are listed before `insumer_jwks` and `insumer_setup`, so a client that reads the tool list top down meets the core first. No tool changed name, inputs or behaviour.
+
 ## 1.17.1 (2026-10-05)
 
 - **`insumer_configure_tokens` carries `alsoOn`** on partner tokens and the own token: the same token on up to 9 other networks (EVM chains and Solana; not the XRP Ledger, not a native coin). The store decides which deployments count as the same token. Each network's balance is read in that token's own decimals there, the balances are added exactly, and the tier is awarded once. A read that fails on any listed network refuses the whole check, never a partial total. When re-saving, carry each token's `alsoOn` through.

@@ -60,7 +60,7 @@ export INSUMER_API_KEY="insr_live_..."
 ### Setup (free, no auth)
 
 #### `insumer_setup(email, appName?)`
-Generate a free InsumerAPI key instantly. Returns an `insr_live_...` key with 10 credits and 100 calls/day. No credit card required. One free key per email, 3 per IP per day.
+Generate a free InsumerAPI key instantly. Returns an `insr_live_...` key with 10 credits and 100 calls/day. No credit card required. One free key per email, with a per-IP daily limit.
 
 ### Key Discovery (free)
 
@@ -82,7 +82,7 @@ Generate an ECDSA-signed wallet trust fact profile. 145 base checks across 27 ch
 Batch trust profiles for up to 10 wallets (each accepts `wallet`, `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, `suiWallet`). Shared block fetches, 5-8x faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle).
 
 #### `insumer_verify(merchantId, wallet?, solanaWallet?, xrplWallet?)`
-Create a signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. Returns tier and discount percentage. Takes an EVM, Solana or XRPL wallet. 1 merchant credit.
+Create a signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. Returns tier and discount percentage. Takes an EVM, Solana or XRPL wallet. A code that carries a discount costs 1 credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged.
 
 ### Discovery (free)
 
@@ -115,7 +115,7 @@ Confirm USDC or USDT payment for a discount code. After calling `insumer_verify`
 ### Merchant Onboarding (owner-only)
 
 #### `insumer_create_merchant(companyName, companyId, location?)`
-Create a new merchant. Receives 100 free verification credits. Max 10 merchants per API key.
+Create a new merchant, owned by the API key that creates it. The store has no balance of its own: that key pays for its codes, scans and taps, and `credits` in the response is that key's balance. A key can create a limited number of merchants (429 past it).
 
 #### `insumer_merchant_status(id)`
 Get full private merchant details: credits, token configs, NFT collections, directory status, verification status, USDC settings.
@@ -133,7 +133,7 @@ Update merchant settings: discount stacking mode (highest/stack/capped), cap (a 
 Publish (or refresh) the merchant's listing in the public directory.
 
 #### `insumer_buy_merchant_credits(id, txHash, chainId, amount, updateWallet?)`
-Buy merchant verification credits with USDC, USDT, or BTC. Same chain support and volume discounts as `insumer_buy_credits`.
+Kept for compatibility. A store has no balance of its own: a USDC, USDT, or BTC payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1. Same chain support as `insumer_buy_credits`, which has the volume tiers.
 
 ### Domain Verification (owner-only)
 
@@ -141,15 +141,15 @@ Buy merchant verification credits with USDC, USDT, or BTC. Same chain support an
 Request a verification token for a merchant's domain. Returns the token and three methods: DNS TXT record, HTML meta tag, or file upload.
 
 #### `insumer_verify_domain(id)`
-Complete domain verification after placing the token. Verified merchants get a trust badge in the public directory. Rate limited to 5 attempts per hour.
+Complete domain verification after placing the token. Verified merchants get a trust badge in the public directory. Rate limited per merchant (429 says when to retry).
 
 ### Commerce Protocol Integration
 
 #### `insumer_acp_discount(merchantId, wallet?, solanaWallet?, xrplWallet?, items?)`
-Check discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations. 1 merchant credit.
+Check discount eligibility in OpenAI/Stripe Agentic Commerce Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and per-item allocations. A code that carries a discount costs the store's owner key 1 credit; a 0% result is free. A caller using another key is not charged.
 
 #### `insumer_ucp_discount(merchantId, wallet?, solanaWallet?, xrplWallet?, items?)`
-Check discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array. 1 merchant credit.
+Check discount eligibility in Google Universal Commerce Protocol (UCP) format. Returns title, extension field, and applied array. A code that carries a discount costs the store's owner key 1 credit; a 0% result is free. A caller using another key is not charged.
 
 #### `insumer_validate_code(code)`
 Validate an INSR-XXXXX discount code. Returns validity, discount percent, and expiry. Free, no auth required.
