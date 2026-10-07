@@ -9,6 +9,19 @@ type Check = { label?: unknown; met?: unknown; evaluated?: unknown };
 type Dimension = { checks?: unknown; total?: unknown };
 type Entry = Record<string, unknown>;
 
+// Dimensions print in this order whatever order they arrive in: the base
+// dimensions first, then the optional wallet dimensions, then anything else by
+// name. Every wallet in a batch therefore reads in the same order.
+const DIMENSION_ORDER = [
+  "stablecoins", "governance", "nfts", "staking", "institutional_stablecoins", "tokenized_treasuries",
+  "stablecoin_deposits", "wrapped_bitcoin", "names", "account",
+  "solana", "xrpl", "bitcoin", "tron",
+];
+
+// The account dimension's checks are code states (contract code, EIP-7702
+// delegation), which are present or not present rather than held.
+const PRESENT = new Set(["account"]);
+
 function str(v: unknown): string {
   return typeof v === "string" ? v : v === undefined || v === null ? "" : String(v);
 }
@@ -17,10 +30,19 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+function nonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v !== "";
+}
+
 // The API returns creditsCharged 0 and creditsRemaining null when the call was
 // paid per call with x402. That payment covers every wallet in the request.
 function paidPerCall(meta: Record<string, unknown>): boolean {
   return meta.creditsRemaining === null && meta.creditsCharged === 0;
+}
+
+function orderDimensions(names: string[]): string[] {
+  const rank = (n: string) => { const i = DIMENSION_ORDER.indexOf(n); return i === -1 ? DIMENSION_ORDER.length : i; };
+  return [...names].sort((a, b) => rank(a) - rank(b) || (rank(a) === DIMENSION_ORDER.length ? a.localeCompare(b) : 0));
 }
 
 function dimensionLine(name: string, dim: Dimension): string {
@@ -28,7 +50,8 @@ function dimensionLine(name: string, dim: Dimension): string {
   const held = checks.filter((c) => c.met === true).map((c) => str(c.label));
   const notEvaluated = checks.filter((c) => c.evaluated === false).length;
   const total = typeof dim.total === "number" ? dim.total : checks.length;
-  let line = `   ${name}: ${held.length} of ${total} held`;
+  const word = PRESENT.has(name) ? "present" : "held";
+  let line = `   ${name}: ${held.length} of ${total} ${word}`;
   if (notEvaluated > 0) line += ` (${notEvaluated} not evaluated)`;
   if (held.length > 0) line += `: ${held.join(", ")}`;
   return line;
@@ -36,16 +59,18 @@ function dimensionLine(name: string, dim: Dimension): string {
 
 function profileLines(index: number, entry: Entry, trust: Record<string, unknown>): string[] {
   const summary = isObject(trust.summary) ? trust.summary : {};
-  const signed = typeof entry.sig === "string" && entry.sig !== "" && typeof entry.kid === "string" && entry.kid !== "";
+  const signed = nonEmptyString(entry.sig) && nonEmptyString(entry.kid);
+  const companion = nonEmptyString(entry.pqSig) && nonEmptyString(entry.pqKid) ? ` + ${entry.pqKid}` : "";
   const signature = signed
-    ? `signed (${str(entry.kid)}${entry.pqKid ? ` + ${str(entry.pqKid)}` : ""})`
+    ? `signed (${entry.kid}${companion})`
     : "returned without a signature: do not rely on it";
   const lines = [
     `${index}. ${str(trust.wallet)} · ${str(trust.id)} · check set ${str(trust.conditionSetVersion)} · expires ${str(trust.expiresAt)} · ${signature}`,
     `   ${str(summary.totalChecks)} checks: ${str(summary.totalPassed)} held, ${str(summary.totalFailed)} not held, ${str(summary.totalNotEvaluated)} not evaluated`,
   ];
   const dims = isObject(trust.dimensions) ? trust.dimensions : {};
-  for (const [name, dim] of Object.entries(dims)) {
+  for (const name of orderDimensions(Object.keys(dims))) {
+    const dim = dims[name];
     if (isObject(dim)) lines.push(dimensionLine(name, dim as Dimension));
   }
   return lines;
@@ -71,16 +96,18 @@ export function summarizeBatchTrust(response: Record<string, unknown>): string |
   const meta = isObject(response.meta) ? response.meta : {};
   const results = data.results as unknown[];
   const counts = isObject(data.summary) ? data.summary : {};
-  const signedCount = results.filter((e) => isObject(e) && isObject(e.trust)).length;
+  // Signed means a profile with a signature and a kid, whatever the API's own
+  // success count says: a profile returned without them is not counted as signed.
+  const signedCount = results.filter((e) => isObject(e) && isObject(e.trust) && nonEmptyString(e.sig) && nonEmptyString(e.kid)).length;
   const requested = typeof counts.requested === "number" ? counts.requested : results.length;
-  const succeeded = typeof counts.succeeded === "number" ? counts.succeeded : signedCount;
-  const failed = typeof counts.failed === "number" ? counts.failed : results.length - signedCount;
+  const succeeded = signedCount;
+  const failed = results.length - signedCount;
   const perCall = paidPerCall(meta);
 
   const out = [
     `Batch trust profiles: ${requested} requested, ${succeeded} signed, ${failed} not signed. ${perCall ? "Paid per call: the payment covered every wallet requested." : `Credits charged: ${str(meta.creditsCharged)}.`}`,
     "This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this result's structuredContent, unchanged, and verifies against the keys from insumer_jwks. Profiles cannot be fetched again, so a new call with detail: \"full\" signs fresh profiles and is charged again.",
-    "Every check is held or not held, never a balance. The counts are facts about the wallet, not a score.",
+    "Every check is held or not held (present or not present for the account dimension), never a balance. The counts are facts about the wallet, not a score.",
     "",
   ];
   results.forEach((entry, i) => {

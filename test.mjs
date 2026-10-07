@@ -75,7 +75,7 @@ const batch = {
     results: [
       {
         trust: {
-          id: "TRST-AAAAA", wallet: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", conditionSetVersion: "2026-10",
+          id: "TRST-AAAAA", wallet: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", conditionSetVersion: "2026-10-08",
           expiresAt: "2026-10-07T19:32:38.129Z",
           dimensions: {
             stablecoins: { checks: [row("USDC on Ethereum", true), row("USDT on Ethereum", false)], passCount: 1, failCount: 1, notEvaluatedCount: 0, total: 2 },
@@ -93,7 +93,7 @@ const batch = {
 };
 const summaryText = summarizeBatchTrust(batch);
 assert(summaryText.startsWith("Batch trust profiles: 2 requested, 1 signed, 1 not signed. Credits charged: 3."), "summary opens with the batch counts and credits");
-assert(summaryText.includes("1. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 · TRST-AAAAA · check set 2026-10"), "summary names each wallet in full with its profile ID and check set");
+assert(summaryText.includes("1. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 · TRST-AAAAA · check set 2026-10-08"), "summary names each wallet in full with its profile ID and check set");
 assert(summaryText.includes("signed (insumer-trust-v2 + insumer-trust-pq1)"), "summary names the kids that signed the profile");
 assert(summaryText.includes("3 checks: 1 held, 1 not held, 1 not evaluated"), "summary carries the profile's own counts");
 assert(summaryText.includes("stablecoins: 1 of 2 held: USDC on Ethereum") && !summaryText.includes("USDT on Ethereum"), "summary lists only the checks held");
@@ -111,6 +111,33 @@ assert(summarizeBatchTrust({ ok: true }) === null && summarizeBatchTrust({ ok: t
 let crashed = false;
 try { for (const odd of [{ ok: true, data: { results: [null, "x", 1, { trust: null }, { error: "boom" }, { trust: { dimensions: "x" } }] } }]) summarizeBatchTrust(odd); } catch { crashed = true; }
 assert(!crashed, "malformed entries do not crash the summary");
+
+// Dimension order, the account dimension's wording, and the signature guards.
+// Two wallets whose dimensions arrive in different orders (the second also
+// carries an unknown dimension and the optional ones out of order) must print
+// in the same fixed order.
+const accountDim = { checks: [row("Contract code on Ethereum", true), row("EIP-7702 delegation on Ethereum", false), row("Contract code on Base", true), row("EIP-7702 delegation on Base", false)], passCount: 2, failCount: 2, notEvaluatedCount: 0, total: 4 };
+const namesDim = { checks: [row("ENS name", true)], passCount: 1, failCount: 0, notEvaluatedCount: 0, total: 1 };
+const solanaDim = { checks: [row("USDC on Solana", false)], passCount: 0, failCount: 1, notEvaluatedCount: 0, total: 1 };
+const tronDim = { checks: [row("USDT on Tron", false)], passCount: 0, failCount: 1, notEvaluatedCount: 0, total: 1 };
+const zzzDim = { checks: [row("Something on Ethereum", false)], passCount: 0, failCount: 1, notEvaluatedCount: 0, total: 1 };
+const inOrder = { stablecoins: batch.data.results[0].trust.dimensions.stablecoins, names: namesDim, account: accountDim, solana: solanaDim, tron: tronDim };
+const shuffled = { zzz_future: zzzDim, tron: tronDim, account: accountDim, solana: solanaDim, names: namesDim, aaa_future: zzzDim, stablecoins: batch.data.results[0].trust.dimensions.stablecoins };
+const profile = (id, dimensions) => ({ trust: { ...batch.data.results[0].trust, id, dimensions }, sig: "c2ln", kid: "insumer-trust-v2", pqSig: "cHE=", pqKid: "insumer-trust-pq1" });
+const ordered = summarizeBatchTrust({ ok: true, data: { results: [profile("TRST-ORDER", inOrder), profile("TRST-SHUFF", shuffled)], summary: { requested: 2, succeeded: 2, failed: 0 } }, meta: { creditsCharged: 6 } });
+const dimensionNames = (text, id) => text.split(`· ${id} ·`)[1].split("\n\n")[0].split("\n").slice(2).map((l) => l.trim().split(":")[0]);
+assert(dimensionNames(ordered, "TRST-ORDER").join(",") === "stablecoins,names,account,solana,tron", `dimensions print in the fixed order (got ${dimensionNames(ordered, "TRST-ORDER").join(",")})`);
+assert(dimensionNames(ordered, "TRST-SHUFF").join(",") === "stablecoins,names,account,solana,tron,aaa_future,zzz_future", `a profile whose dimensions arrive in another order prints in the same fixed order, unknown names last alphabetically (got ${dimensionNames(ordered, "TRST-SHUFF").join(",")})`);
+assert(dimensionNames(ordered, "TRST-ORDER").join(",") === dimensionNames(ordered, "TRST-SHUFF").slice(0, 5).join(","), "every wallet in a batch prints its known dimensions in the same order");
+assert(ordered.includes("account: 2 of 4 present: Contract code on Ethereum, Contract code on Base") && !ordered.includes("account: 2 of 4 held"), "the account dimension says present, not held");
+assert(ordered.includes("names: 1 of 1 held: ENS name") && ordered.includes("stablecoins: 1 of 2 held"), "the other dimensions still say held");
+assert(ordered.includes("(present or not present for the account dimension)"), "the summary says the account dimension's wording");
+const noPqSig = summarizeBatchTrust({ ok: true, data: { results: [{ ...batch.data.results[0], pqSig: "", pqKid: "insumer-trust-pq1" }], summary: { requested: 1, succeeded: 1, failed: 0 } }, meta: { creditsCharged: 3 } });
+assert(noPqSig.includes("signed (insumer-trust-v2)") && !noPqSig.includes("insumer-trust-pq1"), "the post-quantum kid is shown only when its signature is there too");
+const noKid = summarizeBatchTrust({ ok: true, data: { results: [{ ...batch.data.results[0], kid: "" }, batch.data.results[0]], summary: { requested: 2, succeeded: 2, failed: 0 } }, meta: { creditsCharged: 6 } });
+assert(noKid.startsWith("Batch trust profiles: 2 requested, 1 signed, 1 not signed.") && noKid.includes("returned without a signature: do not rely on it"), "the header counts as signed only profiles with both a signature and a kid, whatever the API's own count says");
+const noSig = summarizeBatchTrust({ ok: true, data: { results: [{ ...batch.data.results[0], sig: undefined }], summary: { requested: 1, succeeded: 1, failed: 0 } }, meta: { creditsCharged: 3 } });
+assert(noSig.startsWith("Batch trust profiles: 1 requested, 0 signed, 1 not signed."), "a profile with a kid but no signature is not counted as signed");
 
 // ---------------------------------------------------------------
 async function connect(env) {
@@ -182,6 +209,8 @@ const cond = { type: "token_balance", contractAddress: "native", chainId: 1, thr
 assert(await rejects(client, "insumer_attest", { wallet: "not-an-address", conditions: [cond] }), "attest rejects a malformed EVM wallet");
 assert(await rejects(client, "insumer_attest", { wallet, conditions: [{ ...cond, threshold: "1; DROP" }] }), "attest rejects a non-decimal threshold");
 assert(await rejects(client, "insumer_attest", { wallet, conditions: [{ ...cond, contractAddress: "0x12<script>" }] }), "attest rejects a contract address with stray characters");
+assert(await rejects(client, "insumer_attest", { wallet, conditions: [{ type: "account_code", chainId: 8453, expect: "code" }] }), "attest rejects an expect outside none, eip7702 and contract");
+assert(await rejects(client, "insumer_attest", { wallet, conditions: [{ type: "account_code", chainId: 8453, expect: "eip7702", delegate: "not-an-address" }] }), "attest rejects a malformed delegate");
 assert(await rejects(client, "insumer_wallet_trust", { wallet, solanaWallet: "0OIl" }), "trust rejects a malformed Solana wallet");
 assert(await rejects(client, "insumer_get_merchant", { id: "../../keys" }), "merchant ID rejects path characters");
 assert(await rejects(client, "insumer_request_domain_verification", { id: "acme", domain: "http://169.254.169.254/" }), "domain rejects a URL");
@@ -217,6 +246,13 @@ assert(await rejects(client, "insumer_verify", { merchantId: "acme", wallet: "0x
   assert(settings.maxUnprovenDiscount && settings.maxDiscountsPerWalletPerDay, "configure_settings carries the terms for wallets without proof");
   const suiTyped = JSON.stringify(attest.inputSchema.properties.conditions.items.properties.contractAddress);
   assert(/600/.test(suiTyped), "attest accepts a Sui coin type with type parameters");
+  const condProps = attest.inputSchema.properties.conditions.items.properties;
+  assert(condProps.type.enum.length === 10 && condProps.type.enum.includes("account_code"), "attest offers ten condition types including account_code");
+  assert(condProps.expect?.enum?.join(",") === "none,eip7702,contract" && /never returned/.test(condProps.expect.description), "attest takes expect with the three code states and says the code is never returned");
+  assert(condProps.delegate && /eip7702/.test(condProps.delegate.description), "attest takes delegate, for eip7702 only");
+  assert(/account_code/.test(attest.description) && /account_code/.test(attest.inputSchema.properties.proof.description), "the attest description and its proof input name account_code");
+  const trustDesc = desc("insumer_wallet_trust"), batchDesc = desc("insumer_batch_wallet_trust");
+  assert([trustDesc, batchDesc].every((d) => /155 base checks across 27 chains in 10 dimensions/.test(d) && /176 checks across 29 chains in 14 dimensions/.test(d) && /2026-10-08/.test(d) && /account/.test(d) && /fixed order/.test(d)), "the trust tools carry the counts, the check set version, the account dimension and the fixed order");
 }
 
 console.log("\n4. Free live calls");
