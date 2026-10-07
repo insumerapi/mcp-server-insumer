@@ -14,7 +14,7 @@ metadata:
 
 Privacy-preserving on-chain token and NFT verification across 37 blockchains (31 EVM + Solana + XRPL + Bitcoin + Tron + Stellar + Sui). Returns ECDSA-signed boolean results. No raw balances exposed.
 
-**Version**: 1.20.1
+**Version**: 1.20.2
 
 ## Overview
 
@@ -79,7 +79,7 @@ List available EAS compliance templates (Coinbase Verified Account/Country/One o
 Generate an ECDSA-signed wallet trust fact profile. 155 base checks across 27 chains in 10 dimensions: stablecoins (USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI, EURC across 23 EVM chains), governance, NFTs, staking, institutional stablecoins (EURCV, USDCV, USDC, BENJI across Ethereum, Solana, XRPL, Stellar, Sui), tokenized treasuries (BUIDL, USYC, OUSG, USTB, USDY), stablecoin deposits (Aave v3, sUSDS, sDAI, Morpho USDC vaults), wrapped bitcoin (cbBTC, WBTC, tBTC), names (ENS, Basenames) and account (contract code and EIP-7702 delegation at the wallet address on Ethereum, Base, Arbitrum, Optimism and Polygon; a plain key reads false on both, and which contract is never named). Up to 176 checks across 29 chains in 14 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets; Stellar and Sui wallets switch on rows inside the base dimensions. Every check is a presence check; the account rows are present or not present. Dimensions arrive in a fixed order: the base dimensions as listed, then any of solana, xrpl, bitcoin and tron that were switched on, in that order. `conditionSetVersion` (currently `2026-10-08`) is signed and names the check list; log it, never reject on it. 3 credits (6 with merkle).
 
 #### `insumer_batch_wallet_trust(wallets, proof?, detail?)`
-Batch trust profiles for up to 10 wallets (each accepts `wallet`, `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, `suiWallet`). Shared block fetches, 5-8x faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle). The text is a per-wallet summary by default (profile ID, held / not held / not evaluated counts, checks held per dimension in the fixed dimension order, identical for every wallet; the account dimension's checks are present rather than held); the complete signed profiles are in `structuredContent`. `detail: "full"` puts them in the text too, tens of thousands of characters per wallet; set it on the call that needs it, since profiles cannot be fetched again and a second call is charged again.
+Batch trust profiles for up to 10 wallets (each accepts `wallet`, `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, `suiWallet`). Faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle). The text is a per-wallet summary by default (profile ID, held / not held / not evaluated counts, checks held per dimension in the fixed dimension order, identical for every wallet; the account dimension's checks are present rather than held); the complete signed profiles are in `structuredContent`. `detail: "full"` puts them in the text too, tens of thousands of characters per wallet; set it on the call that needs it, since profiles cannot be fetched again and a second call is charged again.
 
 #### `insumer_verify(merchantId, wallet?, solanaWallet?, xrplWallet?)`
 Create a signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. Returns tier and discount percentage. Takes an EVM, Solana or XRPL wallet. A code that carries a discount costs 1 credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged.

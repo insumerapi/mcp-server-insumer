@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.2 (2026-10-07)
+
+- Tool descriptions, README and SKILL.md state what a caller observes: `insumer_batch_wallet_trust` is faster than sequential calls, and `evm_view_call`, `ratio_to_amount` and `ratio_to_supply` run on EVM chains (`ratio_to_supply` on ERC-20 tokens). No tool name, input or output changes.
+
 ## 1.20.1 (2026-10-07)
 
 - The batch summary's per-profile counts line keeps asset rows and account rows apart: "169 checks: 12 assets held, 5 account facts present, 147 not held, 5 not evaluated". The account dimension's facts (contract code, EIP-7702 delegation) are counted beside the assets, never added to them, so totals stay comparable across wallets and across check sets. A profile without an account dimension keeps the plain "n held" count.
