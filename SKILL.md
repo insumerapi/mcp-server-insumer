@@ -78,8 +78,8 @@ List available EAS compliance templates (Coinbase Verified Account/Country/One o
 #### `insumer_wallet_trust(wallet, solanaWallet?, xrplWallet?, bitcoinWallet?, tronWallet?, stellarWallet?, suiWallet?, proof?)`
 Generate an ECDSA-signed wallet trust fact profile. 145 base checks across 27 chains in 9 dimensions: stablecoins (USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI, EURC across 23 EVM chains), governance, NFTs, staking, institutional stablecoins (EURCV, USDCV, USDC, BENJI across Ethereum, Solana, XRPL, Stellar, Sui), tokenized treasuries (BUIDL, USYC, OUSG, USTB, USDY), stablecoin deposits (Aave v3, sUSDS, sDAI, Morpho USDC vaults), wrapped bitcoin (cbBTC, WBTC, tBTC) and names (ENS, Basenames). Up to 166 checks across 29 chains in 13 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets; Stellar and Sui wallets switch on rows inside the base dimensions. Every check is a presence check. `conditionSetVersion` (currently `2026-10`) is signed and names the check list; log it, never reject on it. 3 credits (6 with merkle).
 
-#### `insumer_batch_wallet_trust(wallets, proof?)`
-Batch trust profiles for up to 10 wallets (each accepts `wallet`, `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, `suiWallet`). Shared block fetches, 5-8x faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle).
+#### `insumer_batch_wallet_trust(wallets, proof?, detail?)`
+Batch trust profiles for up to 10 wallets (each accepts `wallet`, `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, `suiWallet`). Shared block fetches, 5-8x faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle). The text is a per-wallet summary by default (profile ID, held / not held / not evaluated counts, checks held per dimension); the complete signed profiles are in `structuredContent`. `detail: "full"` puts them in the text too, tens of thousands of characters per wallet; set it on the call that needs it, since profiles cannot be fetched again and a second call is charged again.
 
 #### `insumer_verify(merchantId, wallet?, solanaWallet?, xrplWallet?)`
 Create a signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. Returns tier and discount percentage. Takes an EVM, Solana or XRPL wallet. A code that carries a discount costs 1 credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged.
@@ -93,7 +93,7 @@ Browse the merchant directory. Filter by accepted token symbol, verification sta
 Get full public merchant profile including token tiers, NFT collections, discount mode, and verification status.
 
 #### `insumer_list_tokens(chain?, symbol?, type?)`
-List all registered tokens and NFT collections in the registry. Filter by chain ID, symbol, or asset type (token/nft).
+List the tokens and NFT collections listed in the registry. Filter by chain ID, symbol, or asset type (token/nft). A directory, not the list of what can be checked: an attestation checks any token on a supported chain, and NFTs on EVM chains, Solana and XRPL, so an empty result does not mean a token is unsupported.
 
 #### `insumer_check_discount(merchant, wallet?, solanaWallet?, xrplWallet?)`
 Calculate discount for a wallet at a merchant. Returns tier and discount percentage per token. Takes an EVM, Solana or XRPL wallet. Free, no credits consumed. An `rpc_failure` answer means a read did not complete; it is never "not eligible".

@@ -25,6 +25,7 @@ import {
   checkQuote,
   parseUsdcCap,
 } from "./build/payment-guard.js";
+import { summarizeBatchTrust } from "./build/batch-summary.js";
 
 let passed = 0;
 let failed = 0;
@@ -62,6 +63,54 @@ assert(checkQuote({ ...good, amount: "0" }, cap).ok === false, "zero amount is r
 assert(checkQuote({ ...good, amount: "1.5" }, cap).ok === false, "fractional base units are refused");
 assert(checkQuote({ ...good, amount: "-5" }, cap).ok === false, "negative amount is refused");
 assert(checkQuote({ ...good, amount: undefined }, cap).ok === false, "missing amount is refused");
+
+// ---------------------------------------------------------------
+console.log("\n1b. Batch trust summary");
+// Shaped like a live /v1/trust/batch response: one signed profile, one wallet
+// whose reads did not complete.
+const row = (label, met, extra = {}) => ({ label, chainId: 1, met, conditionHash: "0x00", ...extra });
+const batch = {
+  ok: true,
+  data: {
+    results: [
+      {
+        trust: {
+          id: "TRST-AAAAA", wallet: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", conditionSetVersion: "2026-10",
+          expiresAt: "2026-10-07T19:32:38.129Z",
+          dimensions: {
+            stablecoins: { checks: [row("USDC on Ethereum", true), row("USDT on Ethereum", false)], passCount: 1, failCount: 1, notEvaluatedCount: 0, total: 2 },
+            institutional_stablecoins: { checks: [row("USDC on Solana", false, { evaluated: false, reason: "wallet not supplied" })], passCount: 0, failCount: 0, notEvaluatedCount: 1, total: 1 },
+          },
+          summary: { totalChecks: 3, totalPassed: 1, totalFailed: 1, totalNotEvaluated: 1, dimensionsWithActivity: 1, dimensionsChecked: 2 },
+        },
+        sig: "c2ln", kid: "insumer-trust-v2", pqSig: "cHE=", pqKid: "insumer-trust-pq1",
+      },
+      { error: { wallet: "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D", message: "rpc_failure" } },
+    ],
+    summary: { requested: 2, succeeded: 1, failed: 1 },
+  },
+  meta: { creditsCharged: 3 },
+};
+const summaryText = summarizeBatchTrust(batch);
+assert(summaryText.startsWith("Batch trust profiles: 2 requested, 1 signed, 1 not signed. Credits charged: 3."), "summary opens with the batch counts and credits");
+assert(summaryText.includes("1. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 · TRST-AAAAA · check set 2026-10"), "summary names each wallet in full with its profile ID and check set");
+assert(summaryText.includes("signed (insumer-trust-v2 + insumer-trust-pq1)"), "summary names the kids that signed the profile");
+assert(summaryText.includes("3 checks: 1 held, 1 not held, 1 not evaluated"), "summary carries the profile's own counts");
+assert(summaryText.includes("stablecoins: 1 of 2 held: USDC on Ethereum") && !summaryText.includes("USDT on Ethereum"), "summary lists only the checks held");
+assert(summaryText.includes("institutional_stablecoins: 0 of 1 held (1 not evaluated)"), "summary counts the checks not evaluated");
+assert(summaryText.includes("2. 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D · not signed: rpc_failure") && summaryText.includes("never read this entry as a no"), "a wallet whose reads did not complete is reported as not signed, never as a no");
+assert(summaryText.includes("structuredContent") && summaryText.includes('detail: "full"'), "summary says where the signed profiles are and how to get them as text");
+assert(!summaryText.includes("c2ln") && !summaryText.includes("cHE="), "summary does not repeat the signatures it cannot carry the signed bytes for");
+assert(summarizeBatchTrust({ ok: true, data: { results: [], summary: { requested: 0, succeeded: 0, failed: 0 } }, meta: {} }).startsWith("Batch trust profiles: 0 requested"), "an empty batch still summarizes");
+assert(summaryText.includes("No credits were charged for it.") && summaryText.includes("charged again"), "credit-paid batch: an unsigned wallet costs nothing, and a second call is charged again");
+const perCallText = summarizeBatchTrust({ ...batch, meta: { creditsCharged: 0, creditsRemaining: null } });
+assert(perCallText.includes("Paid per call: the payment covered every wallet requested.") && !perCallText.includes("Credits charged") && !perCallText.includes("No credits were charged"), "x402-paid batch: says the payment covered every wallet, never that nothing was charged");
+const unsigned = summarizeBatchTrust({ ok: true, data: { results: [{ trust: batch.data.results[0].trust }], summary: { requested: 1, succeeded: 1, failed: 0 } }, meta: { creditsCharged: 3 } });
+assert(unsigned.includes("returned without a signature: do not rely on it") && !unsigned.includes("signed ("), "a profile without sig and kid is never shown as signed");
+assert(summarizeBatchTrust({ ok: true }) === null && summarizeBatchTrust({ ok: true, data: { results: "x" } }) === null, "a body with no results array is not summarized");
+let crashed = false;
+try { for (const odd of [{ ok: true, data: { results: [null, "x", 1, { trust: null }, { error: "boom" }, { trust: { dimensions: "x" } }] } }]) summarizeBatchTrust(odd); } catch { crashed = true; }
+assert(!crashed, "malformed entries do not crash the summary");
 
 // ---------------------------------------------------------------
 async function connect(env) {
@@ -122,6 +171,8 @@ const withOutput = tools.filter((t) => t.outputSchema?.type === "object" && t.ou
 assert(withOutput === 27, `all 27 tools declare the result output schema (got ${withOutput})`);
 const attest = tools.find((t) => t.name === "insumer_attest");
 assert(attest.annotations.readOnlyHint === false, "insumer_attest is not marked read-only (it spends credits or a payment)");
+const batchTool = tools.find((t) => t.name === "insumer_batch_wallet_trust");
+assert(batchTool.inputSchema.properties.detail?.enum?.join(",") === "summary,full", "insumer_batch_wallet_trust offers detail: summary or full");
 const version = client.getServerVersion();
 assert(version?.version === PKG_VERSION, `server reports the package version ${PKG_VERSION} (got ${version?.version})`);
 
@@ -181,6 +232,8 @@ assert(merchants.structuredContent && sameJson(merchants), "insumer_list_merchan
 assert(code.structuredContent && sameJson(code), "insumer_validate_code carries structuredContent identical to its text");
 const noCreds = await client.callTool({ name: "insumer_attest", arguments: { wallet, conditions: [cond] } });
 assert(noCreds.isError && /No credentials/.test(text(noCreds)), "attest without credentials says so and sends nothing paid");
+const noCredsBatch = await client.callTool({ name: "insumer_batch_wallet_trust", arguments: { wallets: [{ wallet }] } });
+assert(noCredsBatch.isError && !noCredsBatch.structuredContent && /No credentials/.test(text(noCredsBatch)), "batch trust that fails returns the error, not a summary");
 await client.close();
 
 console.log("\n5. Live pay-per-call guard (fresh unfunded wallet, $0.01 cap)");

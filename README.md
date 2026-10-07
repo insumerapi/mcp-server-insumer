@@ -218,7 +218,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 | `insumer_attest` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity, `evm_view_call` for arbitrary boolean view functions, `ratio_to_amount` for self-scaling agent-spend limits and `ratio_to_supply` for share-of-supply rules; all three RPC EVM only, plus `erc8004_agent` for ERC-8004 agent registration and `erc7710_delegation` for MetaMask-framework delegation validity, both on Base). Returns ECDSA-signed boolean with `kid`, `evaluatedCondition`, `conditionHash` (SHA-256), and `blockNumber`/`blockTimestamp`. 1 credit. Optional `proof: "merkle"` for EIP-1186 Merkle storage proofs (2 credits). |
 | `insumer_compliance_templates` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). Free. |
 | `insumer_wallet_trust` | Generate ECDSA-signed wallet trust fact profile. 145 base checks across 27 chains in 9 dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names), up to 166 checks across 29 chains in 13 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets (Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check. The signed `conditionSetVersion` (currently `2026-10`) names the check list; log it, never reject on it. 3 credits (6 with merkle; the premium is refunded for any row no storage proof can cover). |
-| `insumer_batch_wallet_trust` | Batch trust profiles for up to 10 wallets. Each wallet object supports optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, and `suiWallet`. Shared block fetches, 5-8x faster. Partial success supported. 3 credits/wallet (6 with merkle). |
+| `insumer_batch_wallet_trust` | Batch trust profiles for up to 10 wallets. Each wallet object supports optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, and `suiWallet`. Shared block fetches, 5-8x faster. Partial success supported. 3 credits/wallet (6 with merkle). The text is a per-wallet summary by default and the complete signed profiles are in `structuredContent`; `detail: "full"` puts them in the text too (set it on the call: profiles cannot be fetched again). |
 | `insumer_verify` | Create signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. A code that carries a discount costs 1 credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged. Optional `walletProof` proves you control the EVM wallet: full discount, no daily limit. |
 
 ### Discovery (free)
@@ -227,7 +227,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 |------|-------------|
 | `insumer_list_merchants` | Browse the merchant directory. Filter by token, verification status. |
 | `insumer_get_merchant` | Get full public merchant profile. |
-| `insumer_list_tokens` | List all registered tokens and NFTs. Filter by chain, symbol, type. |
+| `insumer_list_tokens` | List the tokens and NFTs listed in the Insumer registry. Filter by chain, symbol, type. A directory, not the list of what can be checked: an attestation checks any token on a supported chain, and NFTs on EVM chains, Solana and XRPL. |
 | `insumer_check_discount` | Calculate discount for a wallet at a merchant. |
 
 ### Credits & Keys

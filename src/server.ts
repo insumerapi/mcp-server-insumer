@@ -11,8 +11,9 @@ import {
   parseUsdcCap,
   type QuoteEntry,
 } from "./payment-guard.js";
+import { summarizeBatchTrust } from "./batch-summary.js";
 
-export const VERSION = "1.18.0";
+export const VERSION = "1.19.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -102,9 +103,10 @@ const RESULT_SCHEMA = z.object({
 }).passthrough();
 
 // Successful results carry their JSON as structuredContent; the text content is
-// left exactly as it was. Error results are passed through untouched.
+// left exactly as it was. Error results are passed through untouched, and so is
+// a result whose handler already set structuredContent (the batch trust summary).
 function withStructuredContent(result: ToolResult): ToolResult {
-  if (result.isError) return result;
+  if (result.isError || result.structuredContent) return result;
   const text = result.content[0]?.text ?? "";
   let structured: Record<string, unknown>;
   try {
@@ -577,7 +579,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_batch_wallet_trust",
-    "Generate wallet trust fact profiles for up to 10 wallets in a single request. Shared block fetches make this faster than sequential calls. Each wallet gets an independently signed profile with its own TRST-XXXXX ID. Supports partial success: failed wallets get error entries while successful ones return full profiles. Costs 3 credits per successful wallet (6 with proof: 'merkle'); credits are charged only for successful profiles. A wallet whose reads did not complete gets an error entry and no signed profile: retry that wallet, and never treat the entry as a no.",
+    "Generate wallet trust fact profiles for up to 10 wallets in a single request. Shared block fetches make this faster than sequential calls. Each wallet gets an independently signed profile with its own TRST-XXXXX ID. Supports partial success: failed wallets get error entries while successful ones return full profiles. Costs 3 credits per successful wallet (6 with proof: 'merkle'); credits are charged only for successful profiles, while a pay-per-call (x402) payment covers every wallet in the request. A wallet whose reads did not complete gets an error entry and no signed profile: retry that wallet, and never treat the entry as a no. Each profile lists every check, so the response is large; by default the text is a summary per wallet (profile ID, held / not held / not evaluated counts, and the checks held in each dimension), and the complete signed profiles are returned unchanged as structuredContent. Set detail to 'full' on the call to get the complete signed profiles as text too. Profiles cannot be fetched again, so a later call signs fresh profiles and is charged again.",
     {
       wallets: z
         .array(
@@ -600,13 +602,25 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
         .describe(
           "Set to 'merkle' for EIP-1186 Merkle storage proofs on all wallets (6 credits/wallet)."
         ),
+      detail: z
+        .enum(["summary", "full"])
+        .optional()
+        .describe(
+          "'summary' (default): the text is a short summary per wallet and the complete signed profiles are in structuredContent. 'full': the complete signed profiles as text too, tens of thousands of characters per wallet (more with optional wallets or merkle proofs). Choose it on the call that needs it: profiles cannot be fetched again, so a second call signs fresh profiles and is charged again. Not sent to the API; it does not change the price of the call."
+        ),
     },
     { title: "Batch wallet trust profiles (signed)", ...SPENDS },
-    async (args) => {
+    async ({ detail, ...args }) => {
       const refusal = await gate("/trust/batch");
       if (refusal) return refusal;
       const result = await apiCall("POST", "/trust/batch", args);
-      return formatResult(result);
+      if (detail === "full" || !result.ok) return formatResult(result);
+      const summary = summarizeBatchTrust(result as Record<string, unknown>);
+      if (summary === null) return formatResult(result);
+      return {
+        content: [{ type: "text" as const, text: summary }],
+        structuredContent: result as Record<string, unknown>,
+      };
     }
   );
 
@@ -743,7 +757,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_list_tokens",
-    "List all registered tokens and NFT collections in the Insumer registry. Filter by chain, symbol, or asset type.",
+    "List the tokens and NFT collections listed in the Insumer registry. Filter by chain, symbol, or asset type. The registry is a directory, not the list of what can be checked: an attestation can check any token on a supported chain, and NFTs on EVM chains, Solana and XRPL, whether listed or not. An empty result means nothing is listed under that filter, not that the token is unsupported.",
     {
       chain: z.union([z.number().int(), z.literal("solana"), z.literal("xrpl"), z.literal("bitcoin")]).optional().describe("Filter by chain ID"),
       symbol: ShortText(32).optional().describe("Filter by token symbol"),
