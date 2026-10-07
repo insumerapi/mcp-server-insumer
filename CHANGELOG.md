@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.1 (2026-10-07)
+
+- The batch summary's per-profile counts line keeps asset rows and account rows apart: "169 checks: 12 assets held, 5 account facts present, 147 not held, 5 not evaluated". The account dimension's facts (contract code, EIP-7702 delegation) are counted beside the assets, never added to them, so totals stay comparable across wallets and across check sets. A profile without an account dimension keeps the plain "n held" count.
+
 ## 1.20.0 (2026-10-07)
 
 - **Adds the `account_code` condition to `insumer_attest`.** The tenth condition type checks the code state of the wallet address itself at the anchored block on an EVM chain. `expect` takes `none` (no code, a plain key account), `eip7702` (the EIP-7702 delegation designator) or `contract` (any other code); the three states are exclusive on a chain. An optional `delegate` with `eip7702` asks whether the designator points at that address. The answer is met or not met, like every type: the code and the delegation target are never returned, in any format or mode, and a supplied `delegate` is echoed in lowercase inside the signed `evaluatedCondition` as the caller's input. 1 credit, 2 with `proof: "merkle"`, which delivers an EIP-1186 account proof (subject `account_code`) whose `codeHash` is the proven value. The tool and parameter descriptions name the three proof subjects (`account_balance`, `account_code`, `delegation_revocation`) beside the subject-less ERC-20 slot proof.

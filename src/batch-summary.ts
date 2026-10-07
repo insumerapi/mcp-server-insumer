@@ -57,6 +57,17 @@ function dimensionLine(name: string, dim: Dimension): string {
   return line;
 }
 
+// "held" counts asset rows only. The account dimension's rows are facts about the
+// address (contract code, EIP-7702 delegation), so they are reported beside the
+// assets rather than added to them; a profile without that dimension keeps the
+// plain count.
+function heldLine(summary: Record<string, unknown>, dims: Record<string, unknown>): string {
+  const account = isObject(dims.account) ? dims.account : null;
+  const accountPresent = account && typeof account.passCount === "number" ? account.passCount : null;
+  if (accountPresent === null || typeof summary.totalPassed !== "number" || summary.totalPassed < accountPresent) return `${str(summary.totalPassed)} held`;
+  return `${summary.totalPassed - accountPresent} assets held, ${accountPresent} account facts present`;
+}
+
 function profileLines(index: number, entry: Entry, trust: Record<string, unknown>): string[] {
   const summary = isObject(trust.summary) ? trust.summary : {};
   const signed = nonEmptyString(entry.sig) && nonEmptyString(entry.kid);
@@ -64,11 +75,11 @@ function profileLines(index: number, entry: Entry, trust: Record<string, unknown
   const signature = signed
     ? `signed (${entry.kid}${companion})`
     : "returned without a signature: do not rely on it";
+  const dims = isObject(trust.dimensions) ? trust.dimensions : {};
   const lines = [
     `${index}. ${str(trust.wallet)} · ${str(trust.id)} · check set ${str(trust.conditionSetVersion)} · expires ${str(trust.expiresAt)} · ${signature}`,
-    `   ${str(summary.totalChecks)} checks: ${str(summary.totalPassed)} held, ${str(summary.totalFailed)} not held, ${str(summary.totalNotEvaluated)} not evaluated`,
+    `   ${str(summary.totalChecks)} checks: ${heldLine(summary, dims)}, ${str(summary.totalFailed)} not held, ${str(summary.totalNotEvaluated)} not evaluated`,
   ];
-  const dims = isObject(trust.dimensions) ? trust.dimensions : {};
   for (const name of orderDimensions(Object.keys(dims))) {
     const dim = dims[name];
     if (isObject(dim)) lines.push(dimensionLine(name, dim as Dimension));
@@ -107,7 +118,7 @@ export function summarizeBatchTrust(response: Record<string, unknown>): string |
   const out = [
     `Batch trust profiles: ${requested} requested, ${succeeded} signed, ${failed} not signed. ${perCall ? "Paid per call: the payment covered every wallet requested." : `Credits charged: ${str(meta.creditsCharged)}.`}`,
     "This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this result's structuredContent, unchanged, and verifies against the keys from insumer_jwks. Profiles cannot be fetched again, so a new call with detail: \"full\" signs fresh profiles and is charged again.",
-    "Every check is held or not held (present or not present for the account dimension), never a balance. The counts are facts about the wallet, not a score.",
+    "Every check is held or not held (present or not present for the account dimension), never a balance. The counts are facts about the wallet, not a score; the account facts are counted beside the assets, never added to them.",
     "",
   ];
   results.forEach((entry, i) => {

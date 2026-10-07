@@ -13,7 +13,7 @@ import {
 } from "./payment-guard.js";
 import { summarizeBatchTrust } from "./batch-summary.js";
 
-export const VERSION = "1.20.0";
+export const VERSION = "1.20.1";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 

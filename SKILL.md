@@ -14,7 +14,7 @@ metadata:
 
 Privacy-preserving on-chain token and NFT verification across 37 blockchains (31 EVM + Solana + XRPL + Bitcoin + Tron + Stellar + Sui). Returns ECDSA-signed boolean results. No raw balances exposed.
 
-**Version**: 1.20.0
+**Version**: 1.20.1
 
 ## Overview
 
