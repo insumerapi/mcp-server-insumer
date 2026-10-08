@@ -87,21 +87,26 @@ function profileLines(index: number, entry: Entry, trust: Record<string, unknown
   return lines;
 }
 
-function errorLines(index: number, entry: Entry, perCall: boolean): string[] {
+function errorLines(index: number, entry: Entry, perCall: boolean, hosted: boolean): string[] {
   const err = isObject(entry.error) ? entry.error : {};
   const reason = str(err.message) || str(err.code) || (typeof entry.error === "string" ? entry.error : "no reason given");
-  const charge = perCall
-    ? "The per-call payment covered this wallet too."
-    : "No credits were charged for it.";
+  const charge = hosted
+    ? ""
+    : perCall
+      ? " The per-call payment covered this wallet too."
+      : " No credits were charged for it.";
   return [
     `${index}. ${str(err.wallet) || "(wallet not named)"} · not signed: ${reason}`,
-    `   No profile was signed for this wallet. ${charge} Retry this wallet; never read this entry as a no.`,
+    `   No profile was signed for this wallet.${charge} Retry this wallet; never read this entry as a no.`,
   ];
 }
 
 // Returns null when the response does not carry a results array, so the caller
-// can fall back to the response as it came.
-export function summarizeBatchTrust(response: Record<string, unknown>): string | null {
+// can fall back to the response as it came. On a hosted deployment (shared key)
+// the caller pays nothing, so the summary never reports the shared key's charge:
+// the price on the caller's own key follows as a separate block.
+export function summarizeBatchTrust(response: Record<string, unknown>, opts: { hosted?: boolean } = {}): string | null {
+  const hosted = opts.hosted === true;
   const data = isObject(response.data) ? response.data : {};
   if (!Array.isArray(data.results)) return null;
   const meta = isObject(response.meta) ? response.meta : {};
@@ -116,14 +121,14 @@ export function summarizeBatchTrust(response: Record<string, unknown>): string |
   const perCall = paidPerCall(meta);
 
   const out = [
-    `Batch trust profiles: ${requested} requested, ${succeeded} signed, ${failed} not signed. ${perCall ? "Paid per call: the payment covered every wallet requested." : `Credits charged: ${str(meta.creditsCharged)}.`}`,
-    "This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this result's structuredContent, unchanged, and verifies against the keys from insumer_jwks. Profiles cannot be fetched again, so a new call with detail: \"full\" signs fresh profiles and is charged again.",
+    `Batch trust profiles: ${requested} requested, ${succeeded} signed, ${failed} not signed. ${hosted ? "No charge to you on this hosted endpoint." : perCall ? "Paid per call: the payment covered every wallet requested." : `Credits charged: ${str(meta.creditsCharged)}.`}`,
+    `This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this result's structuredContent, unchanged, and verifies against the keys from insumer_jwks. Profiles cannot be fetched again, so a new call with detail: "full" signs fresh profiles${hosted ? "" : " and is charged again"}.`,
     "Every check is held or not held (present or not present for the account dimension), never a balance. The counts are facts about the wallet, not a score; the account facts are counted beside the assets, never added to them.",
     "",
   ];
   results.forEach((entry, i) => {
     const e: Entry = isObject(entry) ? entry : {};
-    const lines = isObject(e.trust) ? profileLines(i + 1, e, e.trust) : errorLines(i + 1, e, perCall);
+    const lines = isObject(e.trust) ? profileLines(i + 1, e, e.trust) : errorLines(i + 1, e, perCall, hosted);
     out.push(...lines, "");
   });
   return out.join("\n").trimEnd();

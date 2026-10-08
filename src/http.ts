@@ -83,6 +83,7 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     tools: tools.length ? tools : HOSTED_TOOLS,
     beforeMeteredCall: countMetered,
     hideKeyMeta: true,
+    hostedPricing: true,
   });
   for (const w of warnings) console.error(w);
   const transport = new StreamableHTTPServerTransport({

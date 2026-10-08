@@ -12,8 +12,9 @@ import {
   type QuoteEntry,
 } from "./payment-guard.js";
 import { summarizeBatchTrust } from "./batch-summary.js";
+import { HOSTED_DESCRIPTION_NOTE, hostedPricing, hostedPricingText, type MeteredPath } from "./hosted-pricing.js";
 
-export const VERSION = "1.20.3";
+export const VERSION = "1.21.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -48,6 +49,14 @@ export interface InsumerServerOptions {
    * about the key behind the endpoint. The signed payload is untouched.
    */
   hideKeyMeta?: boolean;
+  /**
+   * The caller pays nothing on a hosted deployment, so the shared key's charge
+   * (meta.creditsCharged) is replaced by what the call would cost the caller:
+   * meta.pricing, plus a text block stating the price on their own API key and
+   * by x402 pay-per-call. The metered tools' descriptions say the same. The
+   * signed payload is untouched.
+   */
+  hostedPricing?: boolean;
 }
 
 /**
@@ -69,6 +78,9 @@ export const HOSTED_TOOLS = [
   "insumer_check_discount",
   "insumer_validate_code",
 ] as const;
+
+// Tools that spend credits; a hosted deployment notes its pricing on these.
+const METERED_TOOLS = new Set(["insumer_attest", "insumer_wallet_trust", "insumer_batch_wallet_trust"]);
 
 async function publicApiCall(
   method: string,
@@ -459,6 +471,22 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
     return { content: [{ type: "text" as const, text: refusal }], isError: true };
   }
 
+  // On a hosted deployment, a successful metered result states its price to the
+  // caller in place of the shared key's charge. Errors pass through untouched.
+  function priced(path: MeteredPath, args: Record<string, unknown>, result: ApiResult, out: ToolResult): ToolResult {
+    if (!options.hostedPricing || !result.ok || out.isError) return out;
+    const meta = result.meta && typeof result.meta === "object" ? (result.meta as Record<string, unknown>) : null;
+    const pricing = hostedPricing(path, args, meta?.creditsCharged);
+    if (meta) {
+      delete meta.creditsCharged;
+      meta.pricing = pricing;
+    }
+    // The text content was rendered before meta changed; re-render it unless the
+    // handler replaced it with a summary.
+    const content = out.structuredContent ? out.content : [{ type: "text" as const, text: JSON.stringify(result, null, 2) }];
+    return { ...out, content: [...content, { type: "text" as const, text: hostedPricingText(pricing) }] };
+  }
+
   // --- Server setup ---
 
   const server = new McpServer({
@@ -478,6 +506,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
     handler: (args: any) => Promise<ToolResult>
   ) => {
     if (allow && !allow.has(name)) return undefined;
+    if (options.hostedPricing && METERED_TOOLS.has(name)) description += HOSTED_DESCRIPTION_NOTE;
     return server.registerTool(
       name,
       { title: annotations.title, description, inputSchema, outputSchema: RESULT_SCHEMA, annotations },
@@ -550,7 +579,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       const refusal = await gate("/attest");
       if (refusal) return refusal;
       const result = await apiCall("POST", "/attest", args);
-      return formatResult(result);
+      return priced("/attest", args, result, formatResult(result));
     }
   );
 
@@ -588,7 +617,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       const refusal = await gate("/trust");
       if (refusal) return refusal;
       const result = await apiCall("POST", "/trust", args);
-      return formatResult(result);
+      return priced("/trust", args, result, formatResult(result));
     }
   );
 
@@ -629,13 +658,13 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       const refusal = await gate("/trust/batch");
       if (refusal) return refusal;
       const result = await apiCall("POST", "/trust/batch", args);
-      if (detail === "full" || !result.ok) return formatResult(result);
-      const summary = summarizeBatchTrust(result as Record<string, unknown>);
-      if (summary === null) return formatResult(result);
-      return {
+      if (detail === "full" || !result.ok) return priced("/trust/batch", args, result, formatResult(result));
+      const summary = summarizeBatchTrust(result as Record<string, unknown>, { hosted: options.hostedPricing });
+      if (summary === null) return priced("/trust/batch", args, result, formatResult(result));
+      return priced("/trust/batch", args, result, {
         content: [{ type: "text" as const, text: summary }],
         structuredContent: result as Record<string, unknown>,
-      };
+      });
     }
   );
 

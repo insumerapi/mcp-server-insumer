@@ -317,6 +317,42 @@ console.log("\n6. Hosted mode over streamable HTTP (HOSTED_TOOLS, daily cap 0)")
     const call = async (s) => { const h = s._registeredTools["insumer_attest"]; return text(await h.handler({ wallet, conditions: [cond] }, {})); };
     assert(!/creditsRemaining/.test(await call(hidden)) && /creditsCharged/.test(await call(hidden)), "hideKeyMeta removes the key's balance from responses and keeps the charge");
     assert(/creditsRemaining/.test(await call(shown)), "without hideKeyMeta the balance is still reported (local installs)");
+
+    // hostedPricing: the caller sees what the call would cost them, never the shared key's charge.
+    const hostedSrv = createInsumerServer({ apiKey: "insr_live_test", hideKeyMeta: true, hostedPricing: true }).server;
+    const run = async (s, name, args) => s._registeredTools[name].handler(args, {});
+    const att = await run(hostedSrv, "insumer_attest", { wallet, conditions: [cond] });
+    const attText = att.content.map((c) => c.text).join("\n");
+    assert(!/creditsCharged/.test(attText) && !att.structuredContent?.meta?.creditsCharged, "hostedPricing removes the shared key's charge");
+    assert(att.structuredContent?.meta?.pricing?.ownKeyCredits === 1 && att.structuredContent.meta.pricing.x402Usd === "$0.05", "attest is priced at 1 credit on a key and $0.05 by x402");
+    assert(att.content.length === 2 && /No charge to you/.test(att.content[1].text) && /1 credit, from \$0\.04 /.test(att.content[1].text) && /\$0\.05 in USDC/.test(att.content[1].text), "attest result carries the price text block");
+    assert(JSON.parse(att.content[0].text).data.met === true, "the result's own JSON is unchanged apart from meta");
+    const attProof = await run(hostedSrv, "insumer_attest", { wallet, conditions: [cond], proof: "merkle" });
+    assert(attProof.structuredContent.meta.pricing.x402Usd === "$0.10", "attest with proof is $0.10 by x402");
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: { trust: {} }, meta: { creditsCharged: 3 } }), { headers: { "Content-Type": "application/json" } });
+    const tr = await run(hostedSrv, "insumer_wallet_trust", { wallet });
+    assert(tr.structuredContent.meta.pricing.ownKeyCredits === 3 && tr.structuredContent.meta.pricing.x402Usd === "$0.15", "trust is 3 credits or $0.15");
+    // A batch of 10 where 9 profiles were signed: the key is charged 27, x402 quotes the whole request.
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, data: { results: [] }, meta: { creditsCharged: 27 } }), { headers: { "Content-Type": "application/json" } });
+    const ten = Array.from({ length: 10 }, () => ({ wallet }));
+    const bt = await run(hostedSrv, "insumer_batch_wallet_trust", { wallets: ten, detail: "full" });
+    assert(bt.structuredContent.meta.pricing.ownKeyCredits === 27 && bt.structuredContent.meta.pricing.x402Usd === "$1.50", "batch: own key pays for signed profiles, x402 for the request");
+    assert(/27 credits, from \$1\.08 /.test(bt.content.at(-1).text), "batch price text states 27 credits ($1.08)");
+    // The default summary path, the one a chat client reads.
+    globalThis.fetch = async () => new Response(JSON.stringify(batch), { headers: { "Content-Type": "application/json" } });
+    const bs = await run(hostedSrv, "insumer_batch_wallet_trust", { wallets: [{ wallet }, { wallet }] });
+    const bsText = bs.content.map((c) => c.text).join("\n");
+    assert(bs.content[0].text.startsWith("Batch trust profiles: 2 requested, 1 signed, 1 not signed. No charge to you on this hosted endpoint."), "hosted summary opens with no charge, not the shared key's credits");
+    assert(!/Credits charged|No credits were charged|charged again/.test(bs.content[0].text), "hosted summary never reports the shared key's charge");
+    assert(bs.content.length === 2 && /3 credits, from \$0\.12 /.test(bs.content[1].text) && /\$0\.30 in USDC/.test(bs.content[1].text), "hosted summary is followed by the price: 3 credits for the signed profile, $0.30 by x402 for two wallets");
+    assert(bs.structuredContent?.data?.results?.[0]?.sig === "c2ln" && bs.structuredContent.meta.pricing.ownKeyCredits === 3, "signed profiles stay in structuredContent beside the price");
+    assert(!/Pricing/.test(summaryText) && summaryText.includes("Credits charged: 3."), "local installs keep the credit wording");
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: false, error: { code: 503, message: "rpc_failure" } }), { headers: { "Content-Type": "application/json" } });
+    const err = await run(hostedSrv, "insumer_attest", { wallet, conditions: [cond] });
+    assert(err.isError && err.content.length === 1 && !/Pricing/.test(err.content[0].text), "an error result carries no price");
+    const desc = (s, n) => s._registeredTools[n].description;
+    assert(/shared daily allowance/.test(desc(hostedSrv, "insumer_batch_wallet_trust")) && !/shared daily allowance/.test(desc(hostedSrv, "insumer_jwks")), "hosted descriptions note the allowance on metered tools only");
+    assert(!/shared daily allowance/.test(desc(shown, "insumer_attest")) && !shown._registeredTools["insumer_attest"] === false, "local installs keep the plain description");
   } finally {
     globalThis.fetch = realFetch;
   }

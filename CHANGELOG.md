@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.21.0 (2026-10-08)
+
+- **Hosted deployments state the price to the caller.** A new `hostedPricing` option, on in the HTTP runner (`node build/http.js`) and on the hosted endpoint, is for a deployment on a shared key, where the caller pays nothing. A successful `insumer_attest`, `insumer_wallet_trust` or `insumer_batch_wallet_trust` result there no longer reports the shared key's charge (`meta.creditsCharged`), which models read as a charge to the caller. In its place `meta.pricing` and a text block state what the same call costs on the caller's own API key (the credits the API charged, from $0.04 a credit) and by x402 pay-per-call (the request's price in USDC, no key), with the link to get either. The batch summary opens with "No charge to you on this hosted endpoint." instead of the credit count. The three tools' descriptions on a hosted deployment say the call is paid from a shared daily allowance. Error results carry no price. Signed payloads are unchanged, and local installs (stdio, own key or payment wallet) are unchanged.
+
 ## 1.20.3 (2026-10-07)
 
 - README and SKILL.md state the free tier as 10 free verifications plus 100 requests a day, list USDT-TRC20 among the credit payments, and give the Merkle proof coverage (27 of the 31 EVM chains). `insumer_confirm_payment` accepts exactly the chains the API accepts for it (the seven EVM payment chains and Solana, USDC only), so a Tron chain ID is refused before any request is sent, and the README states the trust proof premium as refunded whenever no proof is delivered. Tool descriptions, README and SKILL.md carry house punctuation and present-tense wording. The self-hosted HTTP runner (`node build/http.js`) allows 100 metered calls per UTC day unless `INSUMER_DAILY_CAP` is set. No tool name or output changes.
