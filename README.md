@@ -50,7 +50,7 @@ Add to your MCP settings:
 
 ### Get a key: no signup, no dashboard, no password
 
-Three paths, all give you a working `insr_live_...` key in seconds with 100 reads/day and 10 verification credits. One free key per email.
+Three paths, all give you a working `insr_live_...` key in seconds with 10 free verifications plus 100 requests a day. One free key per email.
 
 **Option A: let your agent do it.** Start the server without a key. Your AI agent can call the `insumer_setup` tool with your email to generate a free key instantly. Add it to your config and restart.
 
@@ -146,7 +146,7 @@ When your agent calls `insumer_attest`, you get an ECDSA-signed attestation:
 }
 ```
 
-The `sig` is an ECDSA P-256 signature (base64, P1363 r||s, 88 characters). The `kid` identifies the key and selects the signed bytes: `insumer-attest-v2` signs `"insumer.attestation.v2\n" + canonical_json({v: 2, id, pass, results, attestedAt})` (keys sorted at every level); `insumer-attest-v1` signs the bare `JSON.stringify` of `{id, pass, results, attestedAt}` in insertion order. Since 2026-09-01 every attest and trust response also carries a post-quantum companion, `pqSig` and `pqKid` (ML-DSA-65 over the post-quantum domain tag plus the same classical preimage the `kid` selects), added beside `sig` and `kid` without changing them. The `conditionHash` is a SHA-256 of the exact condition logic that was evaluated.
+The `sig` is an ECDSA P-256 signature (base64, P1363 r||s, 88 characters). The `kid` identifies the key and selects the signed bytes: `insumer-attest-v2` signs `"insumer.attestation.v2\n" + canonical_json({v: 2, id, pass, results, attestedAt})` (keys sorted at every level); `insumer-attest-v1` signs the bare `JSON.stringify` of `{id, pass, results, attestedAt}` in insertion order. Every attest and trust response also carries a post-quantum companion, `pqSig` and `pqKid` (ML-DSA-65 over the post-quantum domain tag plus the same classical preimage the `kid` selects), added beside `sig` and `kid` without changing them. The `conditionHash` is a SHA-256 of the exact condition logic that was evaluated.
 
 No balances. No amounts. Just a cryptographically signed true/false.
 
@@ -201,7 +201,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 | Tool | Description |
 |------|-------------|
-| `insumer_setup` | Generate a free API key instantly. Takes an email, returns an `insr_live_...` key with 10 credits. No credit card required. |
+| `insumer_setup` | Generate a free API key instantly. Takes an email, returns an `insr_live_...` key with 10 free verifications plus 100 requests a day. No credit card required. |
 
 ### Key Discovery (free)
 
@@ -217,7 +217,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 |------|-------------|
 | `insumer_attest` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity, `evm_view_call` for arbitrary boolean view functions, `ratio_to_amount` for self-scaling agent-spend limits and `ratio_to_supply` for share-of-supply rules; all three EVM only, plus `erc8004_agent` for ERC-8004 agent registration and `erc7710_delegation` for MetaMask-framework delegation validity, both on Base, and `account_code` for the code state of the wallet address itself on an EVM chain: `expect` is `none` for a plain key account, `eip7702` for an EIP-7702 delegation designator, optionally to a given `delegate`, or `contract` for any other code; the answer is met or not met, and the code and the delegation target are never returned). Returns ECDSA-signed boolean with `kid`, `evaluatedCondition`, `conditionHash` (SHA-256), and `blockNumber`/`blockTimestamp`. 1 credit. Optional `proof: "merkle"` for EIP-1186 Merkle proofs (2 credits): a balance-slot storage proof for token balances, an account proof (subject `account_balance`) for the native coin, an account proof (subject `account_code`) for `account_code`, and a revocation-slot proof (subject `delegation_revocation`) for `erc7710_delegation`. |
 | `insumer_compliance_templates` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). Free. |
-| `insumer_wallet_trust` | Generate ECDSA-signed wallet trust fact profile. 155 base checks across 27 chains in 10 dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names, account), up to 176 checks across 29 chains in 14 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets (Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check; the account dimension's two rows per chain (contract code, EIP-7702 delegation, on Ethereum, Base, Arbitrum, Optimism and Polygon) are present or not present. Dimensions arrive in a fixed order: the base dimensions as listed, then any of solana, xrpl, bitcoin and tron that were switched on. The signed `conditionSetVersion` (currently `2026-10-08`) names the check list; log it, never reject on it. 3 credits (6 with merkle; the premium is refunded for any row no storage proof can cover). |
+| `insumer_wallet_trust` | Generate ECDSA-signed wallet trust fact profile. 155 base checks across 27 chains in 10 dimensions (stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names, account), up to 176 checks across 29 chains in 14 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets (Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check; the account dimension's two rows per chain (contract code, EIP-7702 delegation, on Ethereum, Base, Arbitrum, Optimism and Polygon) are present or not present. Dimensions arrive in a fixed order: the base dimensions as listed, then any of solana, xrpl, bitcoin and tron that were switched on. The signed `conditionSetVersion` (currently `2026-10-08`) names the check list; log it, never reject on it. 3 credits (6 with merkle; the premium is refunded whenever no proof is delivered). |
 | `insumer_batch_wallet_trust` | Batch trust profiles for up to 10 wallets. Each wallet object supports optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet`, and `suiWallet`. Faster than sequential calls. Partial success supported. 3 credits/wallet (6 with merkle). The text is a per-wallet summary by default (dimensions in their fixed order, identical for every wallet; the account dimension's checks are present rather than held) and the complete signed profiles are in `structuredContent`; `detail: "full"` puts them in the text too (set it on the call: profiles cannot be fetched again). |
 | `insumer_verify` | Create signed discount code (INSR-XXXXX, 30-min expiry) for a wallet at a merchant. A code that carries a discount costs 1 credit from the API key that owns the store; a 0% result is free. A caller using another key is not charged. Optional `walletProof` proves you control the EVM wallet: full discount, no daily limit. |
 
@@ -268,7 +268,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 ## Pricing
 
-**Tiers:** Free (100 reads/day, 10 credits) | Pro $29/mo (1,000 credits/mo, 10,000/day) | Enterprise $99/mo (5,000 credits/mo, 100,000/day)
+**Tiers:** Free (10 free verifications plus 100 requests a day) | Pro $29/mo (1,000 credits/mo, 10,000/day) | Enterprise $99/mo (5,000 credits/mo, 100,000/day)
 
 **Volume discounts:** $5–$99 = $0.04/call (25 credits/$1) · $100–$499 = $0.03 (33/$1, 25% off) · $500+ = $0.02 (50/$1, 50% off)
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.3 (2026-10-07)
+
+- README and SKILL.md state the free tier as 10 free verifications plus 100 requests a day, list USDT-TRC20 among the credit payments, and give the Merkle proof coverage (27 of the 31 EVM chains). `insumer_confirm_payment` accepts exactly the chains the API accepts for it (the seven EVM payment chains and Solana, USDC only), so a Tron chain ID is refused before any request is sent, and the README states the trust proof premium as refunded whenever no proof is delivered. Tool descriptions, README and SKILL.md carry house punctuation and present-tense wording. The self-hosted HTTP runner (`node build/http.js`) allows 100 metered calls per UTC day unless `INSUMER_DAILY_CAP` is set. No tool name or output changes.
+
 ## 1.20.2 (2026-10-07)
 
 - Tool descriptions, README and SKILL.md state what a caller observes: `insumer_batch_wallet_trust` is faster than sequential calls, and `evm_view_call`, `ratio_to_amount` and `ratio_to_supply` run on EVM chains (`ratio_to_supply` on ERC-20 tokens). No tool name, input or output changes.
@@ -67,7 +71,7 @@
 
 - **The server can be hosted.** `createInsumerServer(options)` is exported from the package root and builds a configured server for any transport; the stdio binary is unchanged (`npx -y mcp-server-insumer` behaves exactly as before). `node build/http.js` serves it over MCP streamable HTTP, stateless, for deployments that are reached by URL.
 - **Hosted mode serves a subset.** `HOSTED_TOOLS` names the ten tools that make sense on a shared key with no caller identity: the signing keys, attest, compliance templates, wallet trust and batch trust, the merchant and token directories, the free discount check and code validation. Key and credit management, merchant management, discount creation and the credit balance are not served. `options.tools` sets any other list.
-- **A deployment can gate metered calls.** `options.beforeMeteredCall(path)` runs before attest, trust and batch trust; returning a message refuses the call and sends nothing. The HTTP runner uses it for a per-process daily allowance (`INSUMER_DAILY_CAP`, default 200).
+- **A deployment can gate metered calls.** `options.beforeMeteredCall(path)` runs before attest, trust and batch trust; returning a message refuses the call and sends nothing. The HTTP runner uses it for a per-process daily allowance (`INSUMER_DAILY_CAP`).
 - `options.hideKeyMeta` drops `meta.creditsRemaining` from responses, so a shared key's balance never reaches callers of a hosted endpoint. Local installs are unchanged.
 - Configuration warnings are returned from `createInsumerServer` instead of printed, so a host decides where they go. The stdio binary still prints them to stderr.
 - Tests cover hosted mode: the tool subset, the cap refusal, and a free call over HTTP.

@@ -13,7 +13,7 @@ import {
 } from "./payment-guard.js";
 import { summarizeBatchTrust } from "./batch-summary.js";
 
-export const VERSION = "1.20.2";
+export const VERSION = "1.20.3";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -209,6 +209,19 @@ const UsdcChainId = z
   ])
   .describe("Payment chain: EVM chain ID (1, 8453, 137, 42161, 10, 56, 43114), 'solana', or 'tron'");
 
+// Payment confirmation for discount codes: USDC on the seven EVM payment
+// chains or Solana. Bitcoin and Tron are not accepted there.
+const ConfirmPaymentChainId = z
+  .union([
+    z.enum(["1", "8453", "137", "42161", "10", "56", "43114"]).transform(Number),
+    z.number().int().refine(
+      (n) => [1, 8453, 137, 42161, 10, 56, 43114].includes(n),
+      "Must be a supported payment chain"
+    ),
+    z.literal("solana"),
+  ])
+  .describe("Chain where the USDC was sent: EVM chain ID (1, 8453, 137, 42161, 10, 56, 43114) or 'solana'. Bitcoin and Tron are not accepted here.");
+
 const UsdcChainIdWithBitcoin = z
   .union([
     z.enum(["1", "8453", "137", "42161", "10", "56", "43114"]).transform(Number),
@@ -318,7 +331,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
   const warnings: string[] = [];
   const apiKey = options.apiKey ?? "";
   // Pay-per-call: with no API key but a funded Base wallet key, metered calls are
-  // paid inline via x402 (EIP-3009 USDC on Base) — no signup, no credits. Use a
+  // paid inline via x402 (EIP-3009 USDC on Base): no signup, no credits. Use a
   // THROWAWAY wallet funded with a small amount of USDC. Each quote is checked
   // before signing (see payment-guard.ts): InsumerAPI's own receiving address,
   // USDC on Base, and no more than the cap per call.
@@ -485,7 +498,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
       xrplWallet: XrplAddress.optional().describe("XRPL wallet address (r-address). For verifying XRP, trust line tokens (RLUSD, USDC), or NFTs on XRP Ledger."),
       bitcoinWallet: BitcoinAddress.optional().describe("Bitcoin address (P2PKH, P2SH, bech32, or Taproot). For verifying native BTC balance. Use chainId 'bitcoin' with contractAddress 'native'."),
       tronWallet: TronAddress.optional().describe("Tron wallet address (T-prefixed, base58). For verifying TRX or TRC20 tokens (USDT-TRC20). Use chainId 'tron'."),
-      stellarWallet: StellarAddress.optional().describe("Stellar wallet address (G-prefixed). For verifying XLM or trustline assets (USDC, BENJI, etc.). Use chainId 'stellar' with the asset issuer's G-address as contractAddress and pass assetCode (e.g. 'USDC'). Soroban contract balances not visible — classic trustlines only."),
+      stellarWallet: StellarAddress.optional().describe("Stellar wallet address (G-prefixed). For verifying XLM or trustline assets (USDC, BENJI, etc.). Use chainId 'stellar' with the asset issuer's G-address as contractAddress and pass assetCode (e.g. 'USDC'). Soroban contract balances not visible; classic trustlines only."),
       suiWallet: SuiAddress.optional().describe("Sui wallet address (0x + 64 hex chars). For verifying SUI or other Sui coins (e.g. USDC). Use chainId 'sui' with the Sui coin type as contractAddress: '0x2::sui::SUI' for native SUI, or the full coin type address::module::Name for other coins. The string 'native' is not accepted on Sui."),
       proof: z.enum(["merkle"]).optional().describe("Set to 'merkle' for EIP-1186 Merkle proofs (2 credits, refunded to 1 when no proof is delivered). For token_balance or ratio_to_amount against an ERC-20, a storage proof of the balance slot (no subject field); for the same conditions with contractAddress 'native', an account proof whose balance field is the value evaluated (subject 'account_balance'); for account_code, an account proof whose codeHash is the value evaluated (subject 'account_code'); for erc7710_delegation, a storage proof of the revocation slot (subject 'delegation_revocation') on managers with an on-chain-verified layout. Supported EVM chains only (not ZKsync Era, Sei, Viction or XDC Network, and not on non-EVM chains)."),
       declaredLimits: z.enum(["omit"]).optional().describe("Set to 'omit' to leave decoded caveat limits out of the signed results of erc7710_delegation conditions, so a forwarded attestation does not carry the principal's spending ceiling. met, delegationHash, and conditionHash are byte-identical either way."),
@@ -510,11 +523,11 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
             assetCode: z.string().regex(/^[A-Za-z0-9]{1,12}$/).optional().describe("Stellar trustline asset code (e.g. 'USDC', 'BENJI'). Required for Stellar non-native (trustline) tokens. Use contractAddress 'native' for XLM. Ignored for other chains. Flows into conditionHash so different assets on the same issuer produce different hashes."),
             taxon: z.number().int().min(0).max(4294967295).optional().describe("XRPL NFToken taxon filter: an integer from 0 to 4294967295 (optional, for nft_ownership on XRPL only). Filters NFTs by issuer + taxon."),
             selector: z.string().max(100).regex(/^[A-Za-z_][A-Za-z0-9_]*\(address\)$/).optional().describe("Required for evm_view_call. Canonical signature of a view function returning bool, in the form 'functionName(address)' (e.g. 'hasAccess(address)'). Single-address-argument view functions only; the 4-byte selector is derived from this signature."),
-            agentId: UintString.optional().describe("Required for erc8004_agent. The ERC-8004 agent ID as a uint256 decimal string — the caller must supply it (the deployed Identity Registry has no wallet-to-agentId reverse lookup). Met iff the attested wallet owns the agent NFT (ownerOf) or is the registry's signature-verified agentWallet binding. Registry 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 on Base; chainId 8453 only. Honest semantics: registration is permissionless minting — the signed statement implies no vetting, no reputation, no endorsement."),
+            agentId: UintString.optional().describe("Required for erc8004_agent. The ERC-8004 agent ID as a uint256 decimal string; the caller must supply it (the deployed Identity Registry has no wallet-to-agentId reverse lookup). Met iff the attested wallet owns the agent NFT (ownerOf) or is the registry's signature-verified agentWallet binding. Registry 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 on Base; chainId 8453 only. Honest semantics: registration is permissionless minting, so the signed statement implies no vetting, no reputation, no endorsement."),
             expect: z.enum(["none", "eip7702", "contract"]).optional().describe("Required for account_code: the code state the wallet address itself must be in at the anchored block. 'none' is no code (a plain key account); 'eip7702' is the EIP-7702 delegation designator (a key that has delegated execution to a contract); 'contract' is any other code (a smart-contract wallet, a protocol, a token). The three states are exclusive on a chain. EVM chains only; a non-EVM chainId is rejected with a 400. The result is met or not met, like every type: the code and the delegation target are never returned, in any format or mode. The signed evaluatedCondition is {type, chainId, expect, operator: 'code_state'}. With proof 'merkle', the proof is an EIP-1186 account proof (subject 'account_code') whose codeHash is the proven value."),
             delegate: EvmAddress.optional().describe("For account_code with expect 'eip7702' only (a 400 with any other expect): an EVM address; met iff the wallet's EIP-7702 designator points at it. Echoed in lowercase inside the signed evaluatedCondition as the caller's input; the actual delegation target is never returned."),
-            delegationManager: EvmAddress.optional().describe("Required for erc7710_delegation. DelegationManager contract the delegation was signed against — one of the recognized MetaMask Delegation Framework managers on Base (current default 0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3). chainId 8453 only."),
-            expectedDelegator: EvmAddress.optional().describe("Required for erc7710_delegation. The principal address the caller asserts authorized this agent. The condition fails unless the delegation's declared delegator matches — without it a self-delegation would read as authority, so there is no structural-only mode."),
+            delegationManager: EvmAddress.optional().describe("Required for erc7710_delegation. DelegationManager contract the delegation was signed against: one of the recognized MetaMask Delegation Framework managers on Base (current default 0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3). chainId 8453 only."),
+            expectedDelegator: EvmAddress.optional().describe("Required for erc7710_delegation. The principal address the caller asserts authorized this agent. The condition fails unless the delegation's declared delegator matches. Without it a self-delegation would read as authority, so there is no structural-only mode."),
             delegation: z.object({
               delegator: EvmAddress.describe("Principal address that signed the delegation. Must equal expectedDelegator."),
               delegate: EvmAddress.describe("Agent wallet the delegation authorizes. Must equal the attested wallet."),
@@ -522,10 +535,10 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
               caveats: z.array(z.object({
                 enforcer: EvmAddress.describe("Caveat enforcer contract address"),
                 terms: HexData(20000).describe("ABI-encoded caveat terms (hex)"),
-              })).max(16).describe("Caveats the principal signed (max 16). Every enforcer must be recognized or the condition fails — no override."),
+              })).max(16).describe("Caveats the principal signed (max 16). Every enforcer must be recognized or the condition fails, with no override."),
               salt: z.union([UintString, z.number().int().nonnegative()]).transform((v) => String(v)).describe("Delegation salt (decimal string; numbers coerced)"),
               signature: HexData(20000).describe("EIP-712 signature over the delegation (hex). EOA recovery, or ERC-1271 for smart-contract principals."),
-            }).optional().describe("Required for erc7710_delegation. The signed ERC-7710 delegation to evaluate. Met iff ALL of: attested wallet is the delegate; declared delegator is expectedDelegator; EIP-712 signature verifies (EOA or ERC-1271); unrevoked at the anchored block; every caveat enforcer recognized; any time-window caveat currently satisfied. Recognized enforcers: timestamp (evaluated), erc20_transfer_amount, native_transfer_amount, allowed_targets, limited_calls (the last four are REPORTED as declaredLimits — redemption enforces them, the attestation does not simulate enforcement)."),
+            }).optional().describe("Required for erc7710_delegation. The signed ERC-7710 delegation to evaluate. Met iff ALL of: attested wallet is the delegate; declared delegator is expectedDelegator; EIP-712 signature verifies (EOA or ERC-1271); unrevoked at the anchored block; every caveat enforcer recognized; any time-window caveat currently satisfied. Recognized enforcers: timestamp (evaluated), erc20_transfer_amount, native_transfer_amount, allowed_targets, limited_calls (the last four are REPORTED as declaredLimits: redemption enforces them, the attestation does not simulate enforcement)."),
           })
         )
         .min(1)
@@ -645,7 +658,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
   );
 
   // ============================================================
-  // SETUP — Generate a free API key (no auth required)
+  // SETUP: Generate a free API key (no auth required)
   // ============================================================
 
   tool(
@@ -827,7 +840,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
     {
       txHash: TxHash.describe("Transaction hash proving payment"),
       chainId: UsdcChainIdWithBitcoin,
-      amount: z.number().min(5).optional().describe("Stablecoin amount sent (minimum 5). Not required for BTC — USD value derived from on-chain amount at market rate."),
+      amount: z.number().min(5).optional().describe("Stablecoin amount sent (minimum 5). Not required for BTC: USD value derived from on-chain amount at market rate."),
       appName: z.string().max(100).describe("Name for the API key (e.g. your agent or app name)"),
     },
     { title: "Register a paid API key", ...CREATES },
@@ -855,12 +868,12 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_confirm_payment",
-    "Confirm the stablecoin payment for an INSR discount code. The server verifies the on-chain transaction receipt.",
+    "Confirm the USDC payment for an INSR discount code. The server verifies the on-chain transaction receipt.",
     {
       code: DiscountCode.describe("Discount code (e.g. INSR-A7K3M)"),
       txHash: TxHash.describe("On-chain transaction hash or Solana signature"),
-      chainId: UsdcChainId,
-      amount: z.union([DecimalString, z.number()]).describe("Stablecoin amount sent"),
+      chainId: ConfirmPaymentChainId,
+      amount: z.union([DecimalString, z.number()]).describe("USDC amount sent"),
     },
     { title: "Confirm a discount payment", ...REPEATABLE_WRITE },
     async (args) => {

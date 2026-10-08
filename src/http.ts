@@ -7,7 +7,7 @@
 //
 //   PORT                   listen port (default 3000)
 //   INSUMER_HOSTED_TOOLS   comma-separated tool names (default: HOSTED_TOOLS)
-//   INSUMER_DAILY_CAP      metered calls allowed per UTC day (default 200);
+//   INSUMER_DAILY_CAP      metered calls allowed per UTC day (default 100);
 //                          counted in memory here, so one process only. A
 //                          multi-instance deployment supplies its own counter
 //                          through createInsumerServer({ beforeMeteredCall }).
@@ -19,7 +19,7 @@ import { createInsumerServer, HOSTED_TOOLS, VERSION } from "./server.js";
 const PORT = Number(process.env.PORT ?? 3000);
 const apiKey = process.env.INSUMER_API_KEY ?? "";
 const tools = (process.env.INSUMER_HOSTED_TOOLS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-const dailyCap = Number(process.env.INSUMER_DAILY_CAP ?? 200);
+const dailyCap = Number(process.env.INSUMER_DAILY_CAP ?? 100);
 
 if (!apiKey) {
   console.error("INSUMER_API_KEY is not set; metered tools will refuse every call.");

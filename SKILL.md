@@ -14,11 +14,11 @@ metadata:
 
 Privacy-preserving on-chain token and NFT verification across 37 blockchains (31 EVM + Solana + XRPL + Bitcoin + Tron + Stellar + Sui). Returns ECDSA-signed boolean results. No raw balances exposed.
 
-**Version**: 1.20.2
+**Version**: 1.20.3
 
 ## Overview
 
-InsumerAPI lets agents evaluate wallet state against conditions without handling private keys or raw balance data. Every response is ECDSA P-256 signed, carries an ML-DSA-65 post-quantum companion since September 2026, and is independently verifiable.
+InsumerAPI lets agents evaluate wallet state against conditions without handling private keys or raw balance data. Every response is ECDSA P-256 signed, carries an ML-DSA-65 post-quantum companion, and is independently verifiable.
 
 Agents can:
 - Verify token balances, NFT ownership, EAS attestations, and Farcaster identity
@@ -33,7 +33,7 @@ Agents can:
 ## Setup
 
 ### 1. Get an API Key
-Use the `insumer_setup` tool with your email — or sign up at [insumermodel.com/developers](https://insumermodel.com/developers/#pricing). Free tier available (instant, no credit card).
+Use the `insumer_setup` tool with your email, or sign up at [insumermodel.com/developers](https://insumermodel.com/developers/#pricing). Free tier available (instant, no credit card).
 
 ### 2. Environment Variables
 ```bash
@@ -60,7 +60,7 @@ export INSUMER_API_KEY="insr_live_..."
 ### Setup (free, no auth)
 
 #### `insumer_setup(email, appName?)`
-Generate a free InsumerAPI key instantly. Returns an `insr_live_...` key with 10 credits and 100 calls/day. No credit card required. One free key per email, with a per-IP daily limit.
+Generate a free InsumerAPI key instantly. Returns an `insr_live_...` key with 10 free verifications plus 100 requests a day. No credit card required. One free key per email, with a per-IP daily limit.
 
 ### Key Discovery (free)
 
@@ -101,7 +101,7 @@ Calculate discount for a wallet at a merchant. Returns tier and discount percent
 ### Credits & Keys
 
 #### `insumer_credits()`
-Check verification credit balance, tier (free/pro/enterprise), and daily rate limit for the current API key.
+Check verification credit balance, tier (free, pro, enterprise, paid or x402), and daily rate limit for the current API key.
 
 #### `insumer_buy_key(txHash, chainId, amount, appName)`
 Buy a new API key with USDC, USDT, BTC, or USDT-TRC20 (no auth required). Send the payment, then call with the transaction hash. Sender wallet becomes the key's identity. One key per wallet. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. USDC/USDT auto-detected on EVM and Solana; BTC converted to USD at market rate (1 confirmation); Tron accepts USDT-TRC20. Minimum $5. Non-refundable.
@@ -110,7 +110,7 @@ Buy a new API key with USDC, USDT, BTC, or USDT-TRC20 (no auth required). Send t
 Buy verification credits with USDC, USDT, BTC, or USDT-TRC20. Volume discounts: $5-$99 = $0.04/call, $100-$499 = $0.03, $500+ = $0.02. Minimum $5. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. Non-refundable.
 
 #### `insumer_confirm_payment(code, txHash, chainId, amount)`
-Confirm USDC or USDT payment for a discount code. After calling `insumer_verify`, confirm the on-chain payment. The server verifies the transaction receipt. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana.
+Confirm a USDC payment for a discount code. After calling `insumer_verify`, confirm the on-chain payment. The server verifies the transaction receipt. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana.
 
 ### Merchant Onboarding (owner-only)
 
@@ -133,7 +133,7 @@ Update merchant settings: discount stacking mode (highest/stack/capped), cap (a 
 Publish (or refresh) the merchant's listing in the public directory.
 
 #### `insumer_buy_merchant_credits(id, txHash, chainId, amount, updateWallet?)`
-Kept for compatibility. A store has no balance of its own: a USDC, USDT, or BTC payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1. Same chain support as `insumer_buy_credits`, which has the volume tiers.
+Kept for compatibility. A store has no balance of its own: a USDC, USDT, BTC, or USDT-TRC20 payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1. Same chain support as `insumer_buy_credits`, which has the volume tiers.
 
 ### Domain Verification (owner-only)
 
@@ -164,12 +164,12 @@ Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Sonic, G
 
 ## Security Model
 
-- **No private keys required** — read-only verification, never handles signing keys
-- **No balances exposed** — boolean results only (pass/fail), raw amounts never returned
-- **ECDSA P-256 signatures** — every response cryptographically signed; since 2026-09-01 an ML-DSA-65 post-quantum companion (`pqSig`/`pqKid`, and `pqJwt` beside `jwt`) rides beside `sig`/`kid`
-- **JWKS key discovery** — five entries over two keys at [/.well-known/jwks.json](https://insumermodel.com/.well-known/jwks.json) (RFC 7517; the post-quantum key as RFC 9964 `AKP` entries), matched by `kid` or `pqKid`, never by position
-- **Optional Merkle proofs** — EIP-1186 storage proofs for trustless verification against block headers
-- **Independent verification** — [`insumer-verify`](https://www.npmjs.com/package/insumer-verify) (npm, zero deps; also on [PyPI](https://pypi.org/project/insumer-verify/) for Python, same checks and test vectors) reports five verdicts: signature, condition hash, block freshness, expiry, and the post-quantum companion (1.8.1+)
+- **No private keys required:** read-only verification, never handles signing keys
+- **No balances exposed:** boolean results only (pass/fail), raw amounts never returned
+- **ECDSA P-256 signatures:** every response cryptographically signed; an ML-DSA-65 post-quantum companion (`pqSig`/`pqKid`, and `pqJwt` beside `jwt`) rides beside `sig`/`kid`
+- **JWKS key discovery:** five entries over two keys at [/.well-known/jwks.json](https://insumermodel.com/.well-known/jwks.json) (RFC 7517; the post-quantum key as RFC 9964 `AKP` entries), matched by `kid` or `pqKid`, never by position
+- **Optional Merkle proofs:** EIP-1186 storage proofs on 27 of the 31 EVM chains for trustless verification against block headers
+- **Independent verification:** [`insumer-verify`](https://www.npmjs.com/package/insumer-verify) (npm, zero deps; also on [PyPI](https://pypi.org/project/insumer-verify/) for Python, same checks and test vectors) reports five verdicts: signature, condition hash, block freshness, expiry, and the post-quantum companion (1.8.1+)
 
 ## Links
 

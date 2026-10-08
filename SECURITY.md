@@ -8,7 +8,7 @@ Please report security issues privately, through GitHub's private vulnerability 
 
 That opens an advisory visible only to you and the maintainers. If you cannot use GitHub, email support@insumermodel.com.
 
-Please do not open a public issue for a suspected vulnerability. If you already have, that is not a problem — it will be handled the same way.
+Please do not open a public issue for a suspected vulnerability. If you already have, that is not a problem; it will be handled the same way.
 
 ## What to expect
 
