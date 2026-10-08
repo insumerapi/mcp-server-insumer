@@ -146,7 +146,7 @@ When your agent calls `insumer_attest`, you get an ECDSA-signed attestation:
 }
 ```
 
-The `sig` is an ECDSA P-256 signature (base64, P1363 r||s, 88 characters). The `kid` identifies the key and selects the signed bytes: `insumer-attest-v2` signs `"insumer.attestation.v2\n" + canonical_json({v: 2, id, pass, results, attestedAt})` (keys sorted at every level); `insumer-attest-v1` signs the bare `JSON.stringify` of `{id, pass, results, attestedAt}` in insertion order. Every attest and trust response also carries a post-quantum companion, `pqSig` and `pqKid` (ML-DSA-65 over the post-quantum domain tag plus the same classical preimage the `kid` selects), added beside `sig` and `kid` without changing them. The `conditionHash` is a SHA-256 of the exact condition logic that was evaluated.
+The `sig` is an ECDSA P-256 signature (base64, P1363 r||s, 88 characters). The `kid` identifies the key and selects the signed bytes: `insumer-attest-v2` signs `"insumer.attestation.v2\n" + canonical_json({v: 2, id, pass, results, attestedAt})` (keys sorted at every level); `insumer-attest-v1` signs the bare `JSON.stringify` of `{id, pass, results, attestedAt}` in insertion order. Every attest and trust response is signed twice: ES256 and a post-quantum ML-DSA-65 signature, `pqSig` and `pqKid` (over the post-quantum domain tag plus the same classical preimage the `kid` selects; `pqJwt` beside `jwt`), added beside `sig` and `kid` without changing them. The `conditionHash` is a SHA-256 of the exact condition logic that was evaluated.
 
 No balances. No amounts. Just a cryptographically signed true/false.
 
@@ -193,7 +193,7 @@ if (result.valid) {
 }
 ```
 
-This reports five independent verdicts: ECDSA signature, condition hash integrity, block freshness, attestation expiry, and the post-quantum companion (`insumer-verify` 1.8.1+ reports it as verified, refuted, absent, or unverifiable). Zero runtime dependencies, uses Web Crypto API.
+This reports five independent verdicts: ECDSA signature, condition hash integrity, block freshness, attestation expiry, and the post-quantum signature (`insumer-verify` 1.8.1+ reports it as verified, refuted, absent, or unverifiable). Zero runtime dependencies, uses Web Crypto API.
 
 ## Tools (27)
 

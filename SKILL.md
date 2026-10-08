@@ -18,7 +18,7 @@ Privacy-preserving on-chain token and NFT verification across 37 blockchains (31
 
 ## Overview
 
-InsumerAPI lets agents evaluate wallet state against conditions without handling private keys or raw balance data. Every response is ECDSA P-256 signed, carries an ML-DSA-65 post-quantum companion, and is independently verifiable.
+InsumerAPI lets agents evaluate wallet state against conditions without handling private keys or raw balance data. Every response is ECDSA P-256 (ES256) signed and independently verifiable; attest and trust results are signed twice, ES256 and a post-quantum ML-DSA-65 signature.
 
 Agents can:
 - Verify token balances, NFT ownership, EAS attestations, and Farcaster identity
@@ -166,10 +166,10 @@ Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Sonic, G
 
 - **No private keys required:** read-only verification, never handles signing keys
 - **No balances exposed:** boolean results only (pass/fail), raw amounts never returned
-- **ECDSA P-256 signatures:** every response cryptographically signed; an ML-DSA-65 post-quantum companion (`pqSig`/`pqKid`, and `pqJwt` beside `jwt`) rides beside `sig`/`kid`
+- **ECDSA P-256 signatures:** every response cryptographically signed; the post-quantum ML-DSA-65 signature (`pqSig`/`pqKid`, and `pqJwt` beside `jwt`) rides beside `sig`/`kid`
 - **JWKS key discovery:** five entries over two keys at [/.well-known/jwks.json](https://insumermodel.com/.well-known/jwks.json) (RFC 7517; the post-quantum key as RFC 9964 `AKP` entries), matched by `kid` or `pqKid`, never by position
 - **Optional Merkle proofs:** EIP-1186 storage proofs on 27 of the 31 EVM chains for trustless verification against block headers
-- **Independent verification:** [`insumer-verify`](https://www.npmjs.com/package/insumer-verify) (npm, zero deps; also on [PyPI](https://pypi.org/project/insumer-verify/) for Python, same checks and test vectors) reports five verdicts: signature, condition hash, block freshness, expiry, and the post-quantum companion (1.8.1+)
+- **Independent verification:** [`insumer-verify`](https://www.npmjs.com/package/insumer-verify) (npm, zero deps; also on [PyPI](https://pypi.org/project/insumer-verify/) for Python, same checks and test vectors) reports five verdicts: signature, condition hash, block freshness, expiry, and the post-quantum signature (1.8.1+)
 
 ## Links
 
