@@ -6,7 +6,7 @@ MCP server for [InsumerAPI](https://insumermodel.com/developers/): condition-bas
 
 Enables AI agents (Claude Desktop, Cursor, Windsurf, and any MCP-compatible client) to add condition-based access to any workflow: verify on-chain conditions, discover merchants, generate signed discount codes, and onboard new merchants.
 
-**In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook), a regulated payments stack, uses InsumerAPI attestations in its live ERC-8183 agentic-commerce trust checks. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
+**In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook), a non-custodial payments orchestrator settling through licensed EU partners, uses InsumerAPI attestations in its live ERC-8183 agentic-commerce trust checks. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
 
 Also available as: [LangChain](https://pypi.org/project/langchain-insumer/) (26 tools, PyPI) | [ElizaOS](https://www.npmjs.com/package/@insumermodel/plugin-eliza) (10 actions, npm) | [OpenAI GPT](https://chatgpt.com/g/g-699c5e43ce2481918b3f1e7f144c8a49-insumerapi-wallet-auth) (GPT Store) | [insumer-verify](https://www.npmjs.com/package/insumer-verify) (client-side verification, npm)
 
