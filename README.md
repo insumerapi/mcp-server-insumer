@@ -292,7 +292,7 @@ If the API cannot reach one or more blockchain data sources after retries, `insu
 
 ## Also Available As
 
-- **Claude Code Skill:** `smithery skill add douglasborthwick/insumer-skill` ([Smithery](https://smithery.ai/skills/douglasborthwick/insumer-skill) · [GitHub](https://github.com/insumerapi/insumer-skill)), for *writing* wallet auth into your own projects from inside Claude Code. This MCP server gives an agent runtime access to the API; insumer-skill helps developers author integration code at build time. Different surfaces, same primitive.
+- **Claude Code Skill:** `git clone https://github.com/insumerapi/insumer-skill.git ~/.claude/skills/insumer` ([GitHub](https://github.com/insumerapi/insumer-skill) · [Smithery](https://smithery.ai/skills/douglasborthwick/insumer-skill)), for *writing* wallet auth into your own projects from inside Claude Code. This MCP server gives an agent runtime access to the API; insumer-skill helps developers author integration code at build time. Different surfaces, same primitive.
 - **ElizaOS Plugin:** `@insumermodel/plugin-eliza` ([npm](https://www.npmjs.com/package/@insumermodel/plugin-eliza))
 - **LangChain (Python):** `pip install langchain-insumer` ([PyPI](https://pypi.org/project/langchain-insumer/))
 - **OpenAI GPT:** [InsumerAPI Wallet Auth](https://chatgpt.com/g/g-699c5e43ce2481918b3f1e7f144c8a49-insumerapi-wallet-auth) (GPT Store)
