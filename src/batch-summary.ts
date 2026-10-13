@@ -71,9 +71,9 @@ function heldLine(summary: Record<string, unknown>, dims: Record<string, unknown
 function profileLines(index: number, entry: Entry, trust: Record<string, unknown>): string[] {
   const summary = isObject(trust.summary) ? trust.summary : {};
   const signed = nonEmptyString(entry.sig) && nonEmptyString(entry.kid);
-  const companion = nonEmptyString(entry.pqSig) && nonEmptyString(entry.pqKid) ? ` + ${entry.pqKid}` : "";
+  const pqPart = nonEmptyString(entry.pqSig) && nonEmptyString(entry.pqKid) ? ` + ${entry.pqKid}` : "";
   const signature = signed
-    ? `signed (${entry.kid}${companion})`
+    ? `signed (${entry.kid}${pqPart})`
     : "returned without a signature: do not rely on it";
   const dims = isObject(trust.dimensions) ? trust.dimensions : {};
   const lines = [

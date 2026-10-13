@@ -14,7 +14,7 @@ import {
 import { summarizeBatchTrust } from "./batch-summary.js";
 import { HOSTED_DESCRIPTION_NOTE, hostedPricing, hostedPricingText, type MeteredPath } from "./hosted-pricing.js";
 
-export const VERSION = "1.21.0";
+export const VERSION = "1.21.1";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -520,7 +520,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_attest",
-    `Verify 1-10 on-chain conditions for a wallet and return a signed yes or no for each, never the balance. Condition types: token_balance, nft_ownership, eas_attestation (raw schemaId or a compliance template such as Coinbase Verifications or Gitcoin Passport), farcaster_id (IdRegistry on Optimism), evm_view_call (a single-address-argument view function returning bool), ratio_to_amount (balance >= multiple * amount), ratio_to_supply (balance / totalSupply >= minFraction, ERC-20 only), erc8004_agent (registered ERC-8004 agent on Base), erc7710_delegation (a signed MetaMask-framework delegation from principal to agent is currently valid on Base; spend, target and call limits are reported as declaredLimits, not simulated), and account_code (the code state of the wallet address itself at the anchored block on an EVM chain: expect 'none' for a plain key account, 'eip7702' for an EIP-7702 delegation designator, optionally to a given delegate, or 'contract' for any other code; the answer is met or not met, and the code and the delegation target are never returned). Chains: EVM chains plus Solana, XRPL, Bitcoin, Tron, Stellar and Sui; Bitcoin, Tron, Stellar and Sui support token_balance only. Responses are ECDSA-signed with a kid identifying the key and carry a post-quantum ML-DSA-65 signature (pqSig, pqKid); each result includes evaluatedCondition, a SHA-256 conditionHash, and the block (EVM), ledger (XRPL, Stellar) or checkpoint (Sui) it was read at. proof: 'merkle' adds EIP-1186 proofs on supported EVM chains: a balance-slot storage proof for token_balance and ratio_to_amount (an account proof, subject account_balance, for the native coin), an account proof (subject account_code) for account_code, and a revocation-slot proof (subject delegation_revocation) for erc7710_delegation. Attestations with a delegation condition expire in 5 minutes instead of 30; a failed delegation result carries failReason. Costs 1 credit (2 with proof). An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. ${COUNTS_NOTE}`,
+    `Evaluate a list of 1 to 10 conditions against a wallet's on-chain state and return one signed attestation: a yes or no for each condition, never the balance. One call reads the chain for every condition in the list and returns a single attestation covering all of them, so conditions of different kinds and on different chains are combined in one signed result. A condition states what must be true of the wallet, such as a minimum token balance, ownership of an NFT, an attestation held or a registered agent ID; the type field on each condition lists the kinds available and the fields each one takes. Chains: EVM chains plus Solana, XRPL, Bitcoin, Tron, Stellar and Sui; Bitcoin, Tron, Stellar and Sui support token_balance only. The attestation is signed twice: ES256, with a kid identifying the key, and a post-quantum ML-DSA-65 signature (pqSig, pqKid). Each result includes evaluatedCondition, a SHA-256 conditionHash, and the block (EVM), ledger (XRPL, Stellar) or checkpoint (Sui) it was read at. An attestation expires 30 minutes after it is signed, or 5 minutes when it includes a delegation condition. Costs 1 credit (2 with proof: 'merkle'). An rpc_failure error (503) means a read did not complete and nothing was signed: retry, and never treat it as a no. ${COUNTS_NOTE}`,
     {
       wallet: EvmAddress.optional().describe("EVM wallet address (0x...)"),
       solanaWallet: SolanaAddress.optional().describe("Solana wallet address (base58)"),
@@ -567,12 +567,12 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
               })).max(16).describe("Caveats the principal signed (max 16). Every enforcer must be recognized or the condition fails, with no override."),
               salt: z.union([UintString, z.number().int().nonnegative()]).transform((v) => String(v)).describe("Delegation salt (decimal string; numbers coerced)"),
               signature: HexData(20000).describe("EIP-712 signature over the delegation (hex). EOA recovery, or ERC-1271 for smart-contract principals."),
-            }).optional().describe("Required for erc7710_delegation. The signed ERC-7710 delegation to evaluate. Met iff ALL of: attested wallet is the delegate; declared delegator is expectedDelegator; EIP-712 signature verifies (EOA or ERC-1271); unrevoked at the anchored block; every caveat enforcer recognized; any time-window caveat currently satisfied. Recognized enforcers: timestamp (evaluated), erc20_transfer_amount, native_transfer_amount, allowed_targets, limited_calls (the last four are REPORTED as declaredLimits: redemption enforces them, the attestation does not simulate enforcement)."),
+            }).optional().describe("Required for erc7710_delegation. The signed ERC-7710 delegation to evaluate. Met iff ALL of: attested wallet is the delegate; declared delegator is expectedDelegator; EIP-712 signature verifies (EOA or ERC-1271); unrevoked at the anchored block; every caveat enforcer recognized; any time-window caveat currently satisfied. Recognized enforcers: timestamp (evaluated), erc20_transfer_amount, native_transfer_amount, allowed_targets, limited_calls (the last four are REPORTED as declaredLimits: redemption enforces them, the attestation does not simulate enforcement). A delegation result that is not met carries failReason, and an attestation that includes a delegation condition expires in 5 minutes instead of 30."),
           })
         )
         .min(1)
         .max(10)
-        .describe("1-10 on-chain conditions to verify"),
+        .describe("The list of 1 to 10 conditions to evaluate. All of them are read in this one call and covered by the one signed attestation."),
     },
     { title: "Verify wallet conditions (signed)", ...SPENDS },
     async (args) => {

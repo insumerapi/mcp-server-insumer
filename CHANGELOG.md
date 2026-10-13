@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.21.1 (2026-10-13)
+
+- **`insumer_attest` describes itself as the one operation it is.** A list of 1 to 10 conditions goes in and one signed attestation comes out, with conditions of different kinds and on different chains combined in a single call. The description states that the attestation is signed twice (ES256 and a post-quantum ML-DSA-65 signature) and when it expires. What each kind of condition takes is on the input fields: the `type` field lists the kinds, and the `delegation` field carries `failReason` and the 5 minute expiry. No tool name, input, output or annotation changes.
+- README carries version and license badges, the Claude Code skill's install line from GitHub, and the current description of AsterPay.
+
 ## 1.21.0 (2026-10-08)
 
 - **Hosted deployments state the price to the caller.** A new `hostedPricing` option, on in the HTTP runner (`node build/http.js`) and on the hosted endpoint, is for a deployment on a shared key, where the caller pays nothing. A successful `insumer_attest`, `insumer_wallet_trust` or `insumer_batch_wallet_trust` result there no longer reports the shared key's charge (`meta.creditsCharged`), which models read as a charge to the caller. In its place `meta.pricing` and a text block state what the same call costs on the caller's own API key (the credits the API charged, from $0.04 a credit) and by x402 pay-per-call (the request's price in USDC, no key), with the link to get either. The batch summary opens with "No charge to you on this hosted endpoint." instead of the credit count. The three tools' descriptions on a hosted deployment say the call is paid from a shared daily allowance. Error results carry no price. Signed payloads are unchanged, and local installs (stdio, own key or payment wallet) are unchanged.

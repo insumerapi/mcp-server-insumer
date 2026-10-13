@@ -253,7 +253,9 @@ assert(await rejects(client, "insumer_verify", { merchantId: "acme", wallet: "0x
   assert(condProps.type.enum.length === 10 && condProps.type.enum.includes("account_code"), "attest offers ten condition types including account_code");
   assert(condProps.expect?.enum?.join(",") === "none,eip7702,contract" && /never returned/.test(condProps.expect.description), "attest takes expect with the three code states and says the code is never returned");
   assert(condProps.delegate && /eip7702/.test(condProps.delegate.description), "attest takes delegate, for eip7702 only");
-  assert(/account_code/.test(attest.description) && /account_code/.test(attest.inputSchema.properties.proof.description), "the attest description and its proof input name account_code");
+  assert(/account_code/.test(condProps.type.description) && /account_code/.test(attest.inputSchema.properties.proof.description), "the attest type field and its proof input name account_code");
+  assert(/^Evaluate a list of 1 to 10 conditions/.test(attest.description) && /one signed attestation/.test(attest.description) && /signed twice/.test(attest.description) && !/companion/.test(JSON.stringify(attest)), "the attest description leads with the one operation: a list of conditions in, one signed attestation out");
+  assert(/failReason/.test(condProps.delegation.description) && /5 minutes/.test(condProps.delegation.description), "the delegation input carries failReason and the 5 minute expiry");
   const trustDesc = desc("insumer_wallet_trust"), batchDesc = desc("insumer_batch_wallet_trust");
   assert([trustDesc, batchDesc].every((d) => /155 base checks across 27 chains in 10 dimensions/.test(d) && /176 checks across 29 chains in 14 dimensions/.test(d) && /2026-10-08/.test(d) && /account/.test(d) && /fixed order/.test(d)), "the trust tools carry the counts, the check set version, the account dimension and the fixed order");
 }
