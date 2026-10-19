@@ -22,6 +22,7 @@ import {
   BASE_NETWORK,
   BASE_USDC,
   INSUMER_PAY_TO,
+  INSUMER_PAY_TO_PREVIOUS,
   checkQuote,
   parseUsdcCap,
 } from "./build/payment-guard.js";
@@ -53,6 +54,8 @@ for (const bad of ["", "abc", "-1", "1.2345678", "1e3", "3 USDC"]) {
 }
 assert(checkQuote(good, cap).ok === true, "live-shaped $0.05 quote is accepted");
 assert(checkQuote({ ...good, payTo: good.payTo.toLowerCase() }, cap).ok === true, "recipient match ignores address case");
+assert(checkQuote({ ...good, payTo: INSUMER_PAY_TO_PREVIOUS }, cap).ok === true, "the address quoted before 2026-10-19 is still accepted");
+assert(INSUMER_PAY_TO.toLowerCase() !== INSUMER_PAY_TO_PREVIOUS.toLowerCase(), "current and previous receiving addresses differ");
 assert(checkQuote({ ...good, amount: "3000000" }, cap).ok === true, "quote exactly at the cap is accepted");
 assert(checkQuote({ ...good, amount: "3000001" }, cap).ok === false, "quote one unit above the cap is refused");
 assert(checkQuote({ ...good, payTo: "0x000000000000000000000000000000000000dEaD" }, cap).ok === false, "wrong recipient is refused");

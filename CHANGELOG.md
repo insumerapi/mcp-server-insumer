@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.22.0 (2026-10-19)
+
+- **USDC payments go to InsumerAPI's new receiving addresses.** USDC on Ethereum, Base, Polygon, Arbitrum, Optimism or Avalanche is sent to `0xee432065474D2C852700f74e3fD81e2Bcc16a3D4`, and USDC on Solana to `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4`. USDT keeps the earlier addresses (`0xAd982CB19aCCa2923Df8F687C0614a7700255a23` on every EVM chain, `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr` on Solana), as does anything sent on BNB Chain. Bitcoin and Tron are unchanged. `insumer_buy_key` and the README state the address per token.
+- **The x402 payment guard accepts a quote that names either the new Base address or the one quoted before this release**, so a payment wallet keeps working across the API's changeover. Every other check is unchanged: Base, USDC, the `exact` scheme and the cap.
+
 ## 1.21.1 (2026-10-13)
 
 - **`insumer_attest` describes itself as the one operation it is.** A list of 1 to 10 conditions goes in and one signed attestation comes out, with conditions of different kinds and on different chains combined in a single call. The description states that the attestation is signed twice (ES256 and a post-quantum ML-DSA-65 signature) and when it expires. What each kind of condition takes is on the input fields: the `type` field lists the kinds, and the `delegation` field carries `failReason` and the 5 minute expiry. No tool name, input, output or annotation changes.

@@ -86,7 +86,7 @@ Instead of a key, set `INSUMER_PAYMENT_KEY` to a **throwaway Base wallet** funde
 
 - Base USDC only; the wallet needs USDC but **no ETH** (settlement is gasless).
 - Each call spends a few cents (attest $0.05, trust $0.15). Use a **dedicated throwaway wallet** funded with a small amount, never a wallet holding meaningful funds.
-- **Every quote is checked before the wallet signs.** The server pays only InsumerAPI's own receiving address (`0xAd982CB19aCCa2923Df8F687C0614a7700255a23`), only in USDC on Base, and never more than the cap: **$3.00 per call by default**, the price of the largest call today (a 10-wallet trust batch with Merkle proofs). Anything else is refused and nothing is signed. Set `INSUMER_MAX_PAYMENT_USDC` to change the cap, e.g. `"0.25"` if you only attest. The cheapest call is $0.05, so a cap below that refuses every paid call (the server warns at startup). A malformed value turns pay-per-call off rather than falling back to the default.
+- **Every quote is checked before the wallet signs.** The server pays only InsumerAPI's own receiving address (`0xee432065474D2C852700f74e3fD81e2Bcc16a3D4`, or the address it quoted before 2026-10-19, `0xAd982CB19aCCa2923Df8F687C0614a7700255a23`), only in USDC on Base, and never more than the cap: **$3.00 per call by default**, the price of the largest call today (a 10-wallet trust batch with Merkle proofs). Anything else is refused and nothing is signed. Set `INSUMER_MAX_PAYMENT_USDC` to change the cap, e.g. `"0.25"` if you only attest. The cheapest call is $0.05, so a cap below that refuses every paid call (the server warns at startup). A malformed value turns pay-per-call off rather than falling back to the default.
 - If both `INSUMER_API_KEY` and `INSUMER_PAYMENT_KEY` are set, the key (credits) is used.
 
 ## Hosted endpoint (no install)
@@ -272,9 +272,11 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 **Volume discounts:** $5–$99 = $0.04/call (25 credits/$1) · $100–$499 = $0.03 (33/$1, 25% off) · $500+ = $0.02 (50/$1, 50% off)
 
-**Platform wallets:**
-- **EVM (USDC/USDT):** `0xAd982CB19aCCa2923Df8F687C0614a7700255a23`
-- **Solana (USDC/USDT):** `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr`
+**Platform wallets** (the address depends on the token):
+- **USDC on Ethereum, Base, Polygon, Arbitrum, Optimism or Avalanche:** `0xee432065474D2C852700f74e3fD81e2Bcc16a3D4`
+- **USDT on any EVM chain, and USDC or USDT on BNB Chain:** `0xAd982CB19aCCa2923Df8F687C0614a7700255a23`
+- **USDC on Solana:** `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4`
+- **USDT on Solana:** `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr`
 - **Bitcoin:** `bc1qg7qnerdhlmdn899zemtez5tcx2a2snc0dt9dt0`
 - **Tron (USDT-TRC20):** `TC5yvwkAMakkXtUxYiu2Yn1xbBcwYuD6cn`
 

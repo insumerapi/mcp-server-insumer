@@ -8,8 +8,13 @@
 
 export const BASE_NETWORK = "eip155:8453";
 export const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-// InsumerAPI's receiving address on Base, the same address the buy tools name.
-export const INSUMER_PAY_TO = "0xAd982CB19aCCa2923Df8F687C0614a7700255a23";
+// InsumerAPI's USDC receiving address on Base, the same address the buy tools name.
+export const INSUMER_PAY_TO = "0xee432065474D2C852700f74e3fD81e2Bcc16a3D4";
+// The address InsumerAPI quoted before 2026-10-19. A quote naming it is still
+// InsumerAPI's own, so it is paid; a server older than this release pays only
+// the older address, which is why both are listed here and nowhere else.
+export const INSUMER_PAY_TO_PREVIOUS = "0xAd982CB19aCCa2923Df8F687C0614a7700255a23";
+export const INSUMER_PAY_TO_ADDRESSES: readonly string[] = [INSUMER_PAY_TO, INSUMER_PAY_TO_PREVIOUS];
 // Highest legitimate quote today is a 10-wallet trust batch with Merkle proofs
 // ($3.00). The cap can be lowered (or raised) with INSUMER_MAX_PAYMENT_USDC.
 export const DEFAULT_MAX_PAYMENT_USDC = "3";
@@ -56,7 +61,7 @@ export function checkQuote(entry: QuoteEntry, capUnits: bigint): QuoteCheck {
   if (typeof entry.asset !== "string" || entry.asset.toLowerCase() !== BASE_USDC.toLowerCase()) {
     return { ok: false, error: `Refused to pay: quote asset ${entry.asset} is not USDC on Base.` };
   }
-  if (typeof entry.payTo !== "string" || entry.payTo.toLowerCase() !== INSUMER_PAY_TO.toLowerCase()) {
+  if (typeof entry.payTo !== "string" || !INSUMER_PAY_TO_ADDRESSES.some((a) => a.toLowerCase() === entry.payTo.toLowerCase())) {
     return { ok: false, error: `Refused to pay: quote recipient ${entry.payTo} is not InsumerAPI's receiving address.` };
   }
   if (typeof entry.amount !== "string" || !/^\d{1,30}$/.test(entry.amount)) {

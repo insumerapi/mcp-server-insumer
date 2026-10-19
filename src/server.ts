@@ -14,7 +14,7 @@ import {
 import { summarizeBatchTrust } from "./batch-summary.js";
 import { HOSTED_DESCRIPTION_NOTE, hostedPricing, hostedPricingText, type MeteredPath } from "./hosted-pricing.js";
 
-export const VERSION = "1.21.1";
+export const VERSION = "1.22.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -865,7 +865,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_buy_key",
-    `Register a new API key against a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent (no auth required, no email). This tool does not move funds: it submits the transaction hash. Receiving addresses: EVM 0xAd982CB19aCCa2923Df8F687C0614a7700255a23, Solana 6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr, Tron TC5yvwkAMakkXtUxYiu2Yn1xbBcwYuD6cn, Bitcoin bc1qg7qnerdhlmdn899zemtez5tcx2a2snc0dt9dt0 (1 confirmation required). USDC/USDT auto-detected from the transaction; BTC converted to USD at market rate. One key per wallet; existing keys are topped up with a credit purchase instead. Non-refundable. ${PRICING_NOTE}`,
+    `Register a new API key against a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent (no auth required, no email). This tool does not move funds: it submits the transaction hash. Receiving addresses: USDC on Ethereum, Base, Polygon, Arbitrum, Optimism or Avalanche 0xee432065474D2C852700f74e3fD81e2Bcc16a3D4; USDT on any of those, and USDC or USDT on BNB Chain, 0xAd982CB19aCCa2923Df8F687C0614a7700255a23; USDC on Solana 8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4; USDT on Solana 6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr; Tron TC5yvwkAMakkXtUxYiu2Yn1xbBcwYuD6cn; Bitcoin bc1qg7qnerdhlmdn899zemtez5tcx2a2snc0dt9dt0 (1 confirmation required). USDC/USDT auto-detected from the transaction; BTC converted to USD at market rate. One key per wallet; existing keys are topped up with a credit purchase instead. Non-refundable. ${PRICING_NOTE}`,
     {
       txHash: TxHash.describe("Transaction hash proving payment"),
       chainId: UsdcChainIdWithBitcoin,
