@@ -234,9 +234,9 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 | Tool | Description |
 |------|-------------|
-| `insumer_buy_key` | Buy a new API key with USDC, USDT, BTC, or USDT-TRC20 (no auth required). Agent-friendly: no email needed, sender wallet becomes the key's identity. One key per wallet. Volume discounts: $0.04–$0.02/call. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. Non-refundable. |
+| `insumer_buy_key` | Buy a new API key with USDC (no auth required). Agent-friendly: no email needed, the sending wallet becomes the key's identity and signs a fixed text naming the payment (`senderSignature`; a call without it returns the text). One key per wallet. `amount` required, minimum $5. Volume discounts: $0.04–$0.02/call. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana. Non-refundable. |
 | `insumer_credits` | Check credit balance and tier. |
-| `insumer_buy_credits` | Buy verification credits with USDC, USDT, BTC, or USDT-TRC20. Volume discounts: $0.04–$0.02/call. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. Non-refundable. First purchase registers sender wallet; subsequent purchases must match or include `updateWallet: true`. |
+| `insumer_buy_credits` | Buy verification credits with USDC. `amount` required, minimum $5. Volume discounts: $0.04–$0.02/call. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana. Non-refundable. First purchase registers the sending wallet; subsequent purchases must come from it or include `updateWallet: true`. Registering or replacing the wallet takes `senderSignature` from the wallet that sent the payment. |
 | `insumer_confirm_payment` | Confirm USDC payment for a discount code. |
 
 ### Merchant Onboarding (owner-only)
@@ -249,7 +249,7 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 | `insumer_configure_nfts` | Set NFT collections: a whole-number discount from 1 to 50, or `benefitType: "recognition"` for recognition only. `enabled: false` keeps a collection switched off. |
 | `insumer_configure_settings` | Set discount mode, cap, the terms for wallets without proof of control, USDC payments. |
 | `insumer_publish_directory` | Publish merchant to public directory. |
-| `insumer_buy_merchant_credits` | Kept for compatibility. A store has no balance of its own: a USDC, USDT, BTC, or USDT-TRC20 payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1 (`insumer_buy_credits` has the volume tiers). Owner only. Non-refundable. First purchase registers sender wallet; subsequent purchases must match or include `updateWallet: true`. |
+| `insumer_buy_merchant_credits` | Kept for compatibility. A store has no balance of its own: a USDC payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1 (`insumer_buy_credits` has the volume tiers). `amount` required, minimum $5. Owner only. Non-refundable. First purchase registers the sending wallet; subsequent purchases must come from it or include `updateWallet: true`. Registering or replacing the wallet takes `senderSignature` from the wallet that sent the payment. |
 
 ### Domain Verification (owner-only)
 
@@ -272,15 +272,24 @@ This reports five independent verdicts: ECDSA signature, condition hash integrit
 
 **Volume discounts:** $5–$99 = $0.04/call (25 credits/$1) · $100–$499 = $0.03 (33/$1, 25% off) · $500+ = $0.02 (50/$1, 50% off)
 
-**Platform wallets** (the address depends on the token):
+**Key and credit purchases are paid in USDC only.** Receiving addresses:
 - **USDC on Ethereum, Base, Polygon, Arbitrum, Optimism or Avalanche:** `0xee432065474D2C852700f74e3fD81e2Bcc16a3D4`
-- **USDT on any EVM chain, and USDC or USDT on BNB Chain:** `0xAd982CB19aCCa2923Df8F687C0614a7700255a23`
-- **USDC on Solana:** `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4`
-- **USDT on Solana:** `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr`
-- **Bitcoin:** `bc1qg7qnerdhlmdn899zemtez5tcx2a2snc0dt9dt0`
-- **Tron (USDT-TRC20):** `TC5yvwkAMakkXtUxYiu2Yn1xbBcwYuD6cn`
+- **USDC on BNB Chain:** `0xAd982CB19aCCa2923Df8F687C0614a7700255a23` (USDC sent to it on the other EVM chains is also accepted during the changeover)
+- **USDC on Solana:** `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4` (USDC sent to `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr` is also accepted during the changeover)
 
-**Supported payment chains:** Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. Tokens sent on unsupported chains cannot be recovered. All purchases are final and non-refundable. [Full pricing →](https://insumermodel.com/pricing/)
+**Supported payment chains:** Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana. USDT and other tokens are refused and not credited; tokens sent on unsupported chains cannot be recovered. All purchases are final and non-refundable. [Full pricing →](https://insumermodel.com/pricing/)
+
+**Sender signature.** A purchase that binds a key to a wallet (every key purchase, a credit purchase on a key with no registered wallet, or `updateWallet: true` from a different wallet) takes `senderSignature`: the wallet that sent the payment signs this exact text, five lines joined by `\n` with no trailing newline:
+
+```
+api.insumermodel.com
+Confirm the wallet that sent this payment.
+Purpose: key purchase
+Chain: eip155:8453
+Transaction: 0x<transaction hash, lowercase hex>
+```
+
+`Purpose` is `credit purchase` for a credit purchase; `Chain` is `eip155:<chainId>` on an EVM chain or `solana` (with the Solana signature as given). Call once without `senderSignature` and the 400 returns the exact text. EVM wallets sign with `personal_sign` (EIP-191, 0x hex; smart wallets are checked with ERC-1271); Solana wallets sign with `signMessage` (ed25519, base58 or base64). A 403 means the signature is not from the wallet that sent the payment; a 503 means a smart-wallet check could not complete and the payment was not used.
 
 ## Handling `rpc_failure` Errors
 

@@ -14,7 +14,7 @@ import {
 import { summarizeBatchTrust } from "./batch-summary.js";
 import { HOSTED_DESCRIPTION_NOTE, hostedPricing, hostedPricingText, type MeteredPath } from "./hosted-pricing.js";
 
-export const VERSION = "1.22.0";
+export const VERSION = "1.23.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -234,7 +234,8 @@ const ConfirmPaymentChainId = z
   ])
   .describe("Chain where the USDC was sent: EVM chain ID (1, 8453, 137, 42161, 10, 56, 43114) or 'solana'. Bitcoin and Tron are not accepted here.");
 
-const UsdcChainIdWithBitcoin = z
+// Key and credit purchases: USDC on the seven EVM payment chains or Solana.
+const PurchaseChainId = z
   .union([
     z.enum(["1", "8453", "137", "42161", "10", "56", "43114"]).transform(Number),
     z.number().int().refine(
@@ -242,10 +243,32 @@ const UsdcChainIdWithBitcoin = z
       "Must be a supported payment chain"
     ),
     z.literal("solana"),
-    z.literal("bitcoin"),
-    z.literal("tron"),
   ])
-  .describe("Payment chain: 1, 8453, 137, 42161, 10, 56, 43114, 'solana', 'bitcoin', or 'tron'. EVM/Solana accept USDC and USDT (auto-detected). Bitcoin accepts BTC (converted to USD at market rate). Tron accepts USDT-TRC20.");
+  .describe("Chain where the USDC was sent: Ethereum (1), Optimism (10), BNB Chain (56), Polygon (137), Base (8453), Arbitrum (42161), Avalanche (43114), or 'solana'. Purchases are paid in USDC only.");
+
+// What a key or credit purchase accepts and where the USDC goes.
+const PURCHASE_NOTE =
+  "Paid in USDC only, on Ethereum, Optimism, BNB Chain, Polygon, Base, Arbitrum, Avalanche or Solana. " +
+  "Receiving addresses: 0xee432065474D2C852700f74e3fD81e2Bcc16a3D4 on Ethereum, Optimism, Polygon, Base, Arbitrum or Avalanche; " +
+  "0xAd982CB19aCCa2923Df8F687C0614a7700255a23 on BNB Chain (USDC sent to it on the other EVM chains is also accepted during the changeover); " +
+  "8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4 on Solana (USDC sent to 6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr is also accepted during the changeover). " +
+  "USDT, any other token and any other chain are refused and not credited.";
+
+// The wallet that sent a purchase payment signs a fixed text the API builds for it.
+function senderSignatureField(purpose: "key purchase" | "credit purchase", when: string) {
+  return z
+    .string()
+    .min(1)
+    .max(16384)
+    .describe(
+      `${when} The wallet that sent the payment signs this exact text, five lines joined by \\n with no trailing newline: ` +
+        `"api.insumermodel.com", "Confirm the wallet that sent this payment.", "Purpose: ${purpose}", ` +
+        `"Chain: eip155:<chainId>" (or "Chain: solana"), "Transaction: <transaction hash>" (EVM as 0x plus lowercase hex, Solana as given). ` +
+        "When the signature is required, a call without it returns the exact text in a 400 and the payment is not used. " +
+        "EVM: personal_sign (EIP-191), 0x hex; a smart wallet is checked with ERC-1271. Solana: signMessage (ed25519), base58 or base64. " +
+        "A 403 means the signature is not from the wallet that sent the payment; a 503 means a smart-wallet check could not complete and the payment was not used, so retry."
+    );
+}
 
 const TierSchema = z.object({
   name: z.string().max(30).describe("Tier name, e.g. 'Gold', 'Silver'"),
@@ -865,12 +888,13 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_buy_key",
-    `Register a new API key against a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent (no auth required, no email). This tool does not move funds: it submits the transaction hash. Receiving addresses: USDC on Ethereum, Base, Polygon, Arbitrum, Optimism or Avalanche 0xee432065474D2C852700f74e3fD81e2Bcc16a3D4; USDT on any of those, and USDC or USDT on BNB Chain, 0xAd982CB19aCCa2923Df8F687C0614a7700255a23; USDC on Solana 8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4; USDT on Solana 6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr; Tron TC5yvwkAMakkXtUxYiu2Yn1xbBcwYuD6cn; Bitcoin bc1qg7qnerdhlmdn899zemtez5tcx2a2snc0dt9dt0 (1 confirmation required). USDC/USDT auto-detected from the transaction; BTC converted to USD at market rate. One key per wallet; existing keys are topped up with a credit purchase instead. Non-refundable. ${PRICING_NOTE}`,
+    `Register a new API key against a USDC payment the caller has already sent (no auth required, no email). This tool does not move funds: it submits the transaction hash and a signature from the wallet that sent the payment. ${PURCHASE_NOTE} The sending wallet becomes the key's wallet: one key per wallet, and an existing key is topped up with a credit purchase instead. Non-refundable. ${PRICING_NOTE}`,
     {
       txHash: TxHash.describe("Transaction hash proving payment"),
-      chainId: UsdcChainIdWithBitcoin,
-      amount: z.number().min(5).optional().describe("Stablecoin amount sent (minimum 5). Not required for BTC: USD value derived from on-chain amount at market rate."),
+      chainId: PurchaseChainId,
+      amount: z.number().min(5).describe("USDC amount sent (minimum 5)."),
       appName: z.string().max(100).describe("Name for the API key (e.g. your agent or app name)"),
+      senderSignature: senderSignatureField("key purchase", "Required."),
     },
     { title: "Register a paid API key", ...CREATES },
     async (args) => {
@@ -881,12 +905,13 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_buy_credits",
-    `Add verification credits to the current API key against a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent. This tool does not move funds: it submits the transaction hash. USDC/USDT on EVM and Solana (auto-detected), USDT-TRC20 on Tron, BTC on Bitcoin (converted at market rate, 1 confirmation required). Crypto sent on unsupported chains cannot be recovered. Non-refundable. The first purchase registers the sender wallet to the API key; later purchases must come from the same sender, and updateWallet: true replaces the registered wallet. ${PRICING_NOTE}`,
+    `Add verification credits to the current API key against a USDC payment the caller has already sent. This tool does not move funds: it submits the transaction hash. ${PURCHASE_NOTE} Non-refundable. The first purchase registers the sending wallet to the API key; later purchases must come from the same wallet, and updateWallet: true replaces the registered wallet. Registering or replacing the wallet takes senderSignature from the wallet that sent the payment; a payment from the registered wallet needs none. ${PRICING_NOTE}`,
     {
       txHash: TxHash.describe("Transaction hash proving payment"),
-      chainId: UsdcChainIdWithBitcoin,
-      amount: z.number().min(5).optional().describe("Stablecoin amount sent (minimum 5). Not required for BTC."),
-      updateWallet: z.boolean().optional().default(false).describe("Set true to replace the registered sender wallet with this transaction's sender"),
+      chainId: PurchaseChainId,
+      amount: z.number().min(5).describe("USDC amount sent (minimum 5)."),
+      updateWallet: z.boolean().optional().default(false).describe("Set true to replace the registered wallet with this transaction's sender. Takes senderSignature from the new wallet."),
+      senderSignature: senderSignatureField("credit purchase", "Required when the key has no registered wallet yet, or with updateWallet: true when the payment comes from a different wallet; not needed for a payment from the registered wallet.").optional(),
     },
     { title: "Add credits from a payment", ...OVERWRITES, idempotentHint: false },
     async (args) => {
@@ -1074,13 +1099,14 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
 
   tool(
     "insumer_buy_merchant_credits",
-    `Kept for compatibility: a store has no credit balance of its own, so a payment submitted here adds regular credits to the API key that owns the store, at a flat rate (the regular credit purchase, with volume tiers, is the usual way to top up). Submits a USDC, USDT, BTC, or USDT-TRC20 payment the caller has already sent. This tool does not move funds: it submits the transaction hash. USDC/USDT on EVM and Solana (auto-detected), USDT-TRC20 on Tron, BTC on Bitcoin (converted at market rate, 1 confirmation required). Non-refundable. Owner only. The first purchase registers the sender wallet to the API key; updateWallet: true replaces it. ${PRICING_NOTE}`,
+    `Kept for compatibility: a store has no credit balance of its own, so a payment submitted here adds regular credits to the API key that owns the store, at a flat rate (the regular credit purchase, with volume tiers, is the usual way to top up). Submits a USDC payment the caller has already sent. This tool does not move funds: it submits the transaction hash. ${PURCHASE_NOTE} Non-refundable. Owner only. The first purchase registers the sending wallet to the API key; updateWallet: true replaces it. Registering or replacing the wallet takes senderSignature from the wallet that sent the payment; a payment from the registered wallet needs none. ${PRICING_NOTE}`,
     {
       id: MerchantId.describe("Merchant ID"),
       txHash: TxHash.describe("Transaction hash proving payment"),
-      chainId: UsdcChainIdWithBitcoin,
-      amount: z.number().min(5).optional().describe("Stablecoin amount sent (minimum 5). Not required for BTC."),
-      updateWallet: z.boolean().optional().default(false).describe("Set true to replace the registered sender wallet"),
+      chainId: PurchaseChainId,
+      amount: z.number().min(5).describe("USDC amount sent (minimum 5)."),
+      updateWallet: z.boolean().optional().default(false).describe("Set true to replace the registered wallet with this transaction's sender. Takes senderSignature from the new wallet."),
+      senderSignature: senderSignatureField("credit purchase", "Required when the key has no registered wallet yet, or with updateWallet: true when the payment comes from a different wallet; not needed for a payment from the registered wallet.").optional(),
     },
     { title: "Add credits to the store owner key from a payment", ...OVERWRITES, idempotentHint: false },
     async (args) => {

@@ -27,7 +27,7 @@ Agents can:
 - Generate wallet trust fact profiles (single or batch)
 - Discover merchants and generate signed discount codes
 - Onboard and configure merchants end-to-end
-- Buy API keys and credits with USDC, USDT, or BTC (no auth required)
+- Buy API keys and credits with USDC (no auth required)
 - Integrate with ACP (OpenAI/Stripe) and UCP (Google) commerce protocols
 
 ## Setup
@@ -103,11 +103,11 @@ Calculate discount for a wallet at a merchant. Returns tier and discount percent
 #### `insumer_credits()`
 Check verification credit balance, tier (free, pro, enterprise, paid or x402), and daily rate limit for the current API key.
 
-#### `insumer_buy_key(txHash, chainId, amount, appName)`
-Buy a new API key with USDC, USDT, BTC, or USDT-TRC20 (no auth required). Send the payment, then call with the transaction hash. Sender wallet becomes the key's identity. One key per wallet. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. USDC/USDT auto-detected on EVM and Solana; BTC converted to USD at market rate (1 confirmation); Tron accepts USDT-TRC20. Minimum $5. Non-refundable.
+#### `insumer_buy_key(txHash, chainId, amount, appName, senderSignature)`
+Buy a new API key with USDC (no auth required). Send the payment, then call with the transaction hash, the amount and `senderSignature`: the sending wallet's signature over a fixed text naming the payment (call once without it and the 400 returns the exact text). The sending wallet becomes the key's identity. One key per wallet. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana. USDT and other tokens are refused. Minimum $5. Non-refundable.
 
-#### `insumer_buy_credits(txHash, chainId, amount, updateWallet?)`
-Buy verification credits with USDC, USDT, BTC, or USDT-TRC20. Volume discounts: $5-$99 = $0.04/call, $100-$499 = $0.03, $500+ = $0.02. Minimum $5. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana, Bitcoin, Tron. Non-refundable.
+#### `insumer_buy_credits(txHash, chainId, amount, updateWallet?, senderSignature?)`
+Buy verification credits with USDC. Volume discounts: $5-$99 = $0.04/call, $100-$499 = $0.03, $500+ = $0.02. Minimum $5. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana. The first purchase registers the sending wallet; `updateWallet: true` replaces it. `senderSignature` is required when the key has no registered wallet yet, or with `updateWallet: true` from a different wallet; a payment from the registered wallet needs none. Non-refundable.
 
 #### `insumer_confirm_payment(code, txHash, chainId, amount)`
 Confirm a USDC payment for a discount code. After calling `insumer_verify`, confirm the on-chain payment. The server verifies the transaction receipt. Supported chains: Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, Solana.
@@ -132,8 +132,8 @@ Update merchant settings: discount stacking mode (highest/stack/capped), cap (a 
 #### `insumer_publish_directory(id)`
 Publish (or refresh) the merchant's listing in the public directory.
 
-#### `insumer_buy_merchant_credits(id, txHash, chainId, amount, updateWallet?)`
-Kept for compatibility. A store has no balance of its own: a USDC, USDT, BTC, or USDT-TRC20 payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1. Same chain support as `insumer_buy_credits`, which has the volume tiers.
+#### `insumer_buy_merchant_credits(id, txHash, chainId, amount, updateWallet?, senderSignature?)`
+Kept for compatibility. A store has no balance of its own: a USDC payment submitted here adds regular credits to the API key that owns the store, at a flat 25 credits per $1. Same chains and `senderSignature` rule as `insumer_buy_credits`, which has the volume tiers.
 
 ### Domain Verification (owner-only)
 

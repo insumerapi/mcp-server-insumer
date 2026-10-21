@@ -220,7 +220,7 @@ assert(await rejects(client, "insumer_attest", { wallet, conditions: [{ type: "a
 assert(await rejects(client, "insumer_wallet_trust", { wallet, solanaWallet: "0OIl" }), "trust rejects a malformed Solana wallet");
 assert(await rejects(client, "insumer_get_merchant", { id: "../../keys" }), "merchant ID rejects path characters");
 assert(await rejects(client, "insumer_request_domain_verification", { id: "acme", domain: "http://169.254.169.254/" }), "domain rejects a URL");
-assert(await rejects(client, "insumer_buy_key", { txHash: "abc", chainId: 8453, appName: "x" }), "buy_key rejects a malformed transaction hash");
+assert(await rejects(client, "insumer_buy_key", { txHash: "abc", chainId: 8453, amount: 5, appName: "x", senderSignature: "0x11" }), "buy_key rejects a malformed transaction hash");
 assert(await rejects(client, "insumer_confirm_payment", { code: "INSR-1", txHash: "0x" + "a".repeat(64), chainId: 8453, amount: "5" }), "confirm_payment rejects a malformed code");
 
 assert(await rejects(client, "insumer_attest", { xrplWallet: "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH", conditions: [{ type: "nft_ownership", contractAddress: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De", chainId: "xrpl", taxon: 4294967296 }] }), "attest rejects a taxon above 4294967295");
@@ -355,6 +355,26 @@ console.log("\n6. Hosted mode over streamable HTTP (HOSTED_TOOLS, daily cap 0)")
     globalThis.fetch = async () => new Response(JSON.stringify({ ok: false, error: { code: 503, message: "rpc_failure" } }), { headers: { "Content-Type": "application/json" } });
     const err = await run(hostedSrv, "insumer_attest", { wallet, conditions: [cond] });
     assert(err.isError && err.content.length === 1 && !/Pricing/.test(err.content[0].text), "an error result carries no price");
+    // Purchases: USDC on the seven EVM payment chains or Solana, amount required, senderSignature passed through.
+    // Checked against the schemas and a stubbed fetch only: no purchase endpoint is called.
+    const tx = "0x" + "a".repeat(64);
+    const parses = (n, a) => shown._registeredTools[n].inputSchema.safeParse(a).success;
+    const keyArgs = { txHash: tx, chainId: 8453, amount: 5, appName: "x", senderSignature: "0x11" };
+    assert(parses("insumer_buy_key", keyArgs) && parses("insumer_buy_key", { ...keyArgs, chainId: "solana" }), "buy_key takes USDC on an EVM payment chain or Solana");
+    assert(["insumer_buy_key", "insumer_buy_credits", "insumer_buy_merchant_credits"].every((n) => {
+      const base = n === "insumer_buy_key" ? keyArgs : n === "insumer_buy_merchant_credits" ? { id: "acme", txHash: tx, chainId: 8453, amount: 5 } : { txHash: tx, chainId: 8453, amount: 5 };
+      return !parses(n, { ...base, chainId: "bitcoin" }) && !parses(n, { ...base, chainId: "tron" }) && !parses(n, { ...base, amount: undefined });
+    }), "the three purchase tools refuse bitcoin and tron and require amount");
+    assert(!parses("insumer_buy_key", { ...keyArgs, senderSignature: undefined }), "buy_key requires senderSignature");
+    assert(parses("insumer_buy_credits", { txHash: tx, chainId: 8453, amount: 5 }) && parses("insumer_buy_merchant_credits", { id: "acme", txHash: tx, chainId: 8453, amount: 5 }), "credit purchases take senderSignature only when needed");
+    const sent = [];
+    globalThis.fetch = async (url, init) => { sent.push({ url: String(url), body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: false, error: { code: 400, message: "stub" } }), { headers: { "Content-Type": "application/json" } }); };
+    await run(shown, "insumer_buy_key", keyArgs);
+    await run(shown, "insumer_buy_credits", { txHash: tx, chainId: 8453, amount: 5, updateWallet: true, senderSignature: "0x22" });
+    await run(shown, "insumer_buy_merchant_credits", { id: "acme", txHash: tx, chainId: "solana", amount: 5, updateWallet: true, senderSignature: "sig33" });
+    assert(sent.length === 3 && sent[0].url.endsWith("/keys/buy") && sent[0].body.senderSignature === "0x11" && sent[0].body.amount === 5, "buy_key sends senderSignature and amount in the body");
+    assert(sent[1].url.endsWith("/credits/buy") && sent[1].body.senderSignature === "0x22" && sent[1].body.updateWallet === true, "buy_credits sends senderSignature and updateWallet in the body");
+    assert(sent[2].url.endsWith("/merchants/acme/credits") && sent[2].body.senderSignature === "sig33" && sent[2].body.chainId === "solana" && !("id" in sent[2].body), "buy_merchant_credits sends senderSignature in the body, the id in the path");
     const desc = (s, n) => s._registeredTools[n].description;
     assert(/shared daily allowance/.test(desc(hostedSrv, "insumer_batch_wallet_trust")) && !/shared daily allowance/.test(desc(hostedSrv, "insumer_jwks")), "hosted descriptions note the allowance on metered tools only");
     assert(!/shared daily allowance/.test(desc(shown, "insumer_attest")) && !shown._registeredTools["insumer_attest"] === false, "local installs keep the plain description");

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.23.0 (2026-10-21)
+
+- **Key and credit purchases are paid in USDC only.** `insumer_buy_key`, `insumer_buy_credits` and `insumer_buy_merchant_credits` take `chainId` 1, 10, 56, 137, 8453, 42161, 43114 or `"solana"`; `"bitcoin"` and `"tron"` are no longer accepted, and the API refuses USDT and any other token. Receiving addresses: `0xee432065474D2C852700f74e3fD81e2Bcc16a3D4` for USDC on Ethereum, Optimism, Polygon, Base, Arbitrum and Avalanche; `0xAd982CB19aCCa2923Df8F687C0614a7700255a23` for USDC on BNB Chain, which also accepts USDC on the other EVM chains during the changeover; `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4` for USDC on Solana, with `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr` also accepted during the changeover. No Bitcoin or Tron address. `amount` is required on all three tools.
+- **New `senderSignature` input.** The wallet that sent the payment signs a fixed five-line text naming the payment (domain, purpose, chain, transaction), with `personal_sign` on EVM (ERC-1271 for smart wallets) or `signMessage` on Solana. Required on every key purchase; on a credit purchase only when the key has no registered wallet yet, or with `updateWallet: true` from a different wallet. A call without it, when it is required, returns the exact text in a 400. The tool descriptions, README and SKILL.md state the text, the formats and the 403 and 503 cases.
+- Unchanged: x402 pay-per-call, the hosted tool set (no hosted tool's name, description or schema changes), `insumer_confirm_payment`, and the chains the API reads, Bitcoin and Tron included.
+
 ## 1.22.0 (2026-10-19)
 
 - **USDC payments go to InsumerAPI's new receiving addresses.** USDC on Ethereum, Base, Polygon, Arbitrum, Optimism or Avalanche is sent to `0xee432065474D2C852700f74e3fD81e2Bcc16a3D4`, and USDC on Solana to `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4`. USDT keeps the earlier addresses (`0xAd982CB19aCCa2923Df8F687C0614a7700255a23` on every EVM chain, `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr` on Solana), as does anything sent on BNB Chain. Bitcoin and Tron are unchanged. `insumer_buy_key` and the README state the address per token.
