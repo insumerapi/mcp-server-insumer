@@ -48,7 +48,7 @@ Add to your MCP settings:
 }
 ```
 
-### Get a key: no signup, no dashboard, no password
+### Get a key: just an email, no dashboard, no password
 
 Three paths, all give you a working `insr_live_...` key in seconds with 10 free verifications plus 100 requests a day. One free key per email.
 
