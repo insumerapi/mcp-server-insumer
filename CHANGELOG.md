@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.23.1 (2026-10-29)
+
+- **Solana NFT conditions can name a whole collection.** The `contractAddress` description on `insumer_attest` and on the merchant NFT collection setting says what the API does since 2026-10-29: on Solana, a verified collection address is satisfied by any NFT in that collection (standard, compressed or Core), one NFT's own mint address still matches that NFT only, and an unverified collection tag never counts. Text only: no tool name, input, output or annotation changes.
+
 ## 1.23.0 (2026-10-21)
 
 - **Key and credit purchases are paid in USDC only.** `insumer_buy_key`, `insumer_buy_credits` and `insumer_buy_merchant_credits` take `chainId` 1, 10, 56, 137, 8453, 42161, 43114 or `"solana"`; `"bitcoin"` and `"tron"` are no longer accepted, and the API refuses USDT and any other token. Receiving addresses: `0xee432065474D2C852700f74e3fD81e2Bcc16a3D4` for USDC on Ethereum, Optimism, Polygon, Base, Arbitrum and Avalanche; `0xAd982CB19aCCa2923Df8F687C0614a7700255a23` for USDC on BNB Chain, which also accepts USDC on the other EVM chains during the changeover; `8fyEGM5tRjMocKQWaVXyM2XvvnTxR3sWdrYtug2zeLX4` for USDC on Solana, with `6a1mLjefhvSJX1sEX8PTnionbE9DqoYjU6F6bNkT4Ydr` also accepted during the changeover. No Bitcoin or Tron address. `amount` is required on all three tools.
