@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.23.2 (2026-11-11)
+
+- Shorter npm description: the old one ran past npm's 255-character limit and was cut off mid-word. Package metadata only: no tool, input, output or annotation changes.
+
 ## 1.23.1 (2026-10-29)
 
 - **Solana NFT conditions can name a whole collection.** The `contractAddress` description on `insumer_attest` and on the merchant NFT collection setting says what the API does since 2026-10-29: on Solana, a verified collection address is satisfied by any NFT in that collection (standard, compressed or Core), one NFT's own mint address still matches that NFT only, and an unverified collection tag never counts. Text only: no tool name, input, output or annotation changes.

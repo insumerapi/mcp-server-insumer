@@ -14,7 +14,7 @@ import {
 import { summarizeBatchTrust } from "./batch-summary.js";
 import { HOSTED_DESCRIPTION_NOTE, hostedPricing, hostedPricingText, type MeteredPath } from "./hosted-pricing.js";
 
-export const VERSION = "1.23.1";
+export const VERSION = "1.23.2";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
