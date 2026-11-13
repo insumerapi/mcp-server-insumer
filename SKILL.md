@@ -160,7 +160,7 @@ Validate an INSR-XXXXX discount code. Returns validity, discount percent, and ex
 
 ## Supported Chains (37)
 
-Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Sonic, Gnosis, Mantle, Scroll, Linea, zkSync Era, Blast, Taiko, Ronin, Celo, Viction, opBNB, World Chain, Unichain, Ink, Sei, Berachain, ApeChain, Chiliz, Soneium, Plume, Robinhood Chain, Arc, Solana, XRPL, Bitcoin, Tron, Stellar, Sui.
+Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Sonic, Gnosis, Mantle, Scroll, Linea, zkSync Era, Taiko, Ronin, Celo, Viction, opBNB, World Chain, Unichain, Ink, Sei, Berachain, ApeChain, Chiliz, Soneium, Plume, Robinhood Chain, Arc, Tempo, Solana, XRPL, Bitcoin, Tron, Stellar, Sui.
 
 ## Security Model
 
