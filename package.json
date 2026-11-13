@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-insumer",
-  "version": "1.23.2",
+  "version": "1.24.0",
   "description": "MCP server for InsumerAPI, the wallet auth API: send a wallet and conditions, get a signed boolean across 37 chains. 27 tools: attestation, wallet trust profiles, compliance, commerce. Signed twice: ES256 and a post-quantum ML-DSA-65 signature.",
   "license": "MIT",
   "author": "Douglas Borthwick",

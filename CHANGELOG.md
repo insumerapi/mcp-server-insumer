@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.24.0 (2026-11-13)
+
+- **Tempo (chain ID 4217) is supported; Blast (81457) is retired.** The merchant token and NFT tools (`insumer_configure_tokens`, `insumer_configure_nfts`) accept `chainId` 4217 and no longer accept 81457. `insumer_attest` takes any EVM chain ID as before; the API answers a request naming Blast with a 400 that says the network has shut down. The counts are unchanged: 37 chains, 31 of them EVM.
+- **Tempo has no native coin.** The `contractAddress` description on `insumer_attest` says so: `'native'` on chain 4217 is rejected with a 400, so pass the token's contract address. No tool name, output or annotation changes.
+
 ## 1.23.2 (2026-11-11)
 
 - Shorter npm description: the old one ran past npm's 255-character limit and was cut off mid-word. Package metadata only: no tool, input, output or annotation changes.

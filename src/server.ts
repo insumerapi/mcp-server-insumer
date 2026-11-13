@@ -14,7 +14,7 @@ import {
 import { summarizeBatchTrust } from "./batch-summary.js";
 import { HOSTED_DESCRIPTION_NOTE, hostedPricing, hostedPricingText, type MeteredPath } from "./hosted-pricing.js";
 
-export const VERSION = "1.23.2";
+export const VERSION = "1.24.0";
 const API_BASE = "https://api.insumermodel.com/v1";
 const KEYGEN_URL = "https://api.insumermodel.com/v1/keys/create";
 
@@ -199,9 +199,9 @@ const ChainId = z
 
 const OnboardingChainId = z
   .union([
-    z.enum(["1", "50", "56", "8453", "43114", "137", "42161", "10", "88888", "1868", "98866", "480", "146", "100", "5000", "534352", "59144", "324", "81457", "42220", "204", "130", "57073", "1329", "80094", "33139", "4663", "167000", "2020", "88", "5042"]).transform(Number),
+    z.enum(["1", "50", "56", "8453", "43114", "137", "42161", "10", "88888", "1868", "98866", "480", "146", "100", "5000", "534352", "59144", "324", "42220", "204", "130", "57073", "1329", "80094", "33139", "4663", "167000", "2020", "88", "5042", "4217"]).transform(Number),
     z.number().int().refine(
-      (n) => [1, 50, 56, 8453, 43114, 137, 42161, 10, 88888, 1868, 98866, 480, 146, 100, 5000, 534352, 59144, 324, 81457, 42220, 204, 130, 57073, 1329, 80094, 33139, 4663, 167000, 2020, 88, 5042].includes(n),
+      (n) => [1, 50, 56, 8453, 43114, 137, 42161, 10, 88888, 1868, 98866, 480, 146, 100, 5000, 534352, 59144, 324, 42220, 204, 130, 57073, 1329, 80094, 33139, 4663, 167000, 2020, 88, 5042, 4217].includes(n),
       "Must be a supported onboarding chain"
     ),
     z.literal("solana"),
@@ -559,7 +559,7 @@ export function createInsumerServer(options: InsumerServerOptions = {}): { serve
         .array(
           z.object({
             type: z.enum(["token_balance", "nft_ownership", "eas_attestation", "farcaster_id", "evm_view_call", "ratio_to_amount", "ratio_to_supply", "erc8004_agent", "erc7710_delegation", "account_code"]).describe("Condition type: token_balance, nft_ownership (EVM, Solana and XRPL), eas_attestation, farcaster_id (Farcaster IdRegistry on Optimism), evm_view_call (single-address-argument view function returning bool; EVM chains only), ratio_to_amount (balance >= multiple * amount; EVM chains only), ratio_to_supply (balance / totalSupply >= minFraction; EVM chains, ERC-20 only), erc8004_agent (registered ERC-8004 agent on Base; agentId required), erc7710_delegation (signed MetaMask-framework delegation validity on Base; delegationManager, expectedDelegator, and delegation required; max 3 per request), or account_code (the code state of the wallet address itself on an EVM chain; expect required, delegate optional with expect 'eip7702'; no contractAddress)"),
-            contractAddress: ConditionContractRef.optional().describe("Token or NFT contract address (required for token_balance, nft_ownership, ratio_to_amount, and ratio_to_supply; ratio_to_supply requires an ERC-20 contract, no native). 'native' means the chain's native coin and is for token_balance and ratio_to_amount only. nft_ownership needs the NFT contract address (0x + 40 hex on EVM). On Solana it takes a verified collection address, which any NFT in that collection satisfies, or one NFT's mint address (or the asset ID of a compressed or Core NFT); an unverified collection tag never counts. 'native' with nft_ownership is rejected with a 400, so use token_balance for the native coin. On Sui, pass a coin type address::module::Name: native SUI is '0x2::sui::SUI', and 'native' is not accepted there. A coin type may carry type parameters in angle brackets."),
+            contractAddress: ConditionContractRef.optional().describe("Token or NFT contract address (required for token_balance, nft_ownership, ratio_to_amount, and ratio_to_supply; ratio_to_supply requires an ERC-20 contract, no native). 'native' means the chain's native coin and is for token_balance and ratio_to_amount only. Tempo (chainId 4217) has no native coin, so 'native' is rejected with a 400 there: pass the token's contract address. nft_ownership needs the NFT contract address (0x + 40 hex on EVM). On Solana it takes a verified collection address, which any NFT in that collection satisfies, or one NFT's mint address (or the asset ID of a compressed or Core NFT); an unverified collection tag never counts. 'native' with nft_ownership is rejected with a 400, so use token_balance for the native coin. On Sui, pass a coin type address::module::Name: native SUI is '0x2::sui::SUI', and 'native' is not accepted there. A coin type may carry type parameters in angle brackets."),
             chainId: ChainId.optional(),
             threshold: DecimalArg.optional().describe("Minimum balance for token_balance, as a decimal string in token/display units (e.g. \"100\", not base units). Numbers are accepted and coerced to a string. Must be > 0 when proof is merkle."),
             multiple: DecimalArg.optional().describe("For ratio_to_amount: collateralization multiple as a decimal string (e.g. \"10\" for 'hold >= 10x the amount'). Met iff balance >= multiple * amount. Numbers are accepted and coerced. Must be > 0."),
